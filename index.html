@@ -1,23 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ethereal Expanse — Loading…</title>
-  <style>
-    body { margin:0; background:#02040c; color:#d4e4ff; font-family:system-ui,sans-serif;
-      display:flex; align-items:center; justify-content:center; min-height:100vh; }
-    a { color:#5ce1ff; }
-  </style>
+<meta charset="UTF-8">
+<title>Ethereal Expanse</title>
+<style>body{margin:0;background:#02040c;color:#9ab;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh}</style>
 </head>
 <body>
-  <div style="text-align:center">
-    <h1>Ethereal Expanse</h1>
-    <p>Loading combat prototype…</p>
-    <p><a href="ethereal-expanse-v5.html">Open game directly</a></p>
-  </div>
-  <script>
-    location.replace('ethereal-expanse-v5.html');
-  </script>
+<p id="s">Loading Ethereal Expanse…</p>
+<script>
+(async function(){
+  const n = 5;
+  const parts = [];
+  for (let i = 0; i < n; i++) {
+    const r = await fetch('part' + i + '.txt');
+    parts.push(await r.text());
+    document.getElementById('s').textContent = 'Loading… ' + (i+1) + '/' + n;
+  }
+  const b64 = parts.join('');
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const html = new TextDecoder().decode(bytes);
+  document.open();
+  document.write(html);
+  document.close();
+})().catch(e => { document.getElementById('s').textContent = 'Load failed: ' + e; });
+</script>
 </body>
 </html>
