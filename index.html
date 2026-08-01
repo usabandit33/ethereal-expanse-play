@@ -1,31 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Ethereal Expanse</title>
-<style>body{margin:0;background:#02040c;color:#9ab;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh}</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ethereal Expanse</title>
+  <style>
+    body {
+      margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: #02040c; color: #d4e4ff; font-family: system-ui, sans-serif; text-align: center;
+    }
+    a { color: #5ce1ff; }
+    code { background: #141428; padding: 2px 8px; border-radius: 6px; }
+    .card {
+      background: linear-gradient(160deg, #141428, #0e1020);
+      border: 1px solid rgba(100,140,255,0.35);
+      border-radius: 16px; padding: 28px 32px; max-width: 480px;
+      box-shadow: 0 0 40px rgba(60,100,255,0.2);
+    }
+    h1 { color: #9ab8ff; margin-top: 0; }
+  </style>
+  <script>
+    // If the full game file is present, go straight in
+    fetch('ethereal-expanse-v5.html', { method: 'HEAD' }).then(r => {
+      if (r.ok) location.replace('ethereal-expanse-v5.html');
+    }).catch(() => {});
+  </script>
 </head>
 <body>
-<p id="s">Loading Ethereal Expanse…</p>
-<script>
-(async function(){
-  const n = 18;
-  const parts = [];
-  for (let i = 0; i < n; i++) {
-    const r = await fetch('q' + i + '.txt');
-    if (!r.ok) throw new Error('missing q' + i + ' (' + r.status + ')');
-    parts.push(await r.text());
-    document.getElementById('s').textContent = 'Loading… ' + (i+1) + '/' + n;
-  }
-  const b64 = parts.join('');
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  const html = new TextDecoder().decode(bytes);
-  document.open();
-  document.write(html);
-  document.close();
-})().catch(e => { document.getElementById('s').textContent = 'Load failed: ' + e; });
-</script>
+  <div class="card">
+    <h1>Ethereal Expanse</h1>
+    <p>Combat prototype (Three.js) — v5 playtest build</p>
+    <p>If you see this page, upload <code>ethereal-expanse-v5.html</code> to the repo root, then open:</p>
+    <p><a href="ethereal-expanse-v5.html">ethereal-expanse-v5.html</a></p>
+    <p style="font-size:12px;color:#6a7a9a">GitHub Pages · public deploy of the browser sandbox</p>
+  </div>
 </body>
 </html>
