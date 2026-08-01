@@ -1,27 +1,26 @@
-# Ethereal Expanse — Live Play (GitHub Pages)
+# Ethereal Expanse v7 — Live Play
 
-**Public deploy repo** for the v5 combat prototype.
+**Play:** [https://usabandit33.github.io/ethereal-expanse-play/](https://usabandit33.github.io/ethereal-expanse-play/)
 
-## Play URL (after upload + Pages on)
+Three.js browser combat sandbox (playtest clarity build).
 
-https://usabandit33.github.io/ethereal-expanse-play/
+## Controls
 
-or directly:
+| Key | Action |
+|-----|--------|
+| WASD | Move |
+| Mouse / Click | Look · **LMB** fire |
+| F | Aether beam (auto-aim Void Walkers) |
+| Shift | Run / boost |
+| Space | Jump / handbrake |
+| E / B | Chop / camp |
+| V | Enter/exit car |
+| P / Esc | Pause |
+| M | Minimap legend |
+| Q / C | Quality / cheats |
 
-https://usabandit33.github.io/ethereal-expanse-play/ethereal-expanse-v5.html
+## Goal
 
-## One-time setup (2 minutes)
+Gems + Void Walker pearls → 3 pearls summon Abyssal Wyrm. Coins fuel the car. Climb the eastern castle.
 
-1. Download `ethereal-expanse-v5.html` from your local artifacts / Grok project folder.
-2. Open https://github.com/usabandit33/ethereal-expanse-play
-3. **Add file → Upload files** → drop `ethereal-expanse-v5.html` → Commit.
-4. **Settings → Pages** → Source: **Deploy from a branch** → Branch: **main** / **/(root)** → Save.
-5. Wait ~30–60s, then open the Play URL above.
-
-The landing `index.html` auto-redirects to the game once the file is present.
-
-## Controls (short)
-
-WASD move · mouse look · LMB/F beam · V car · E chop · B camp · P pause · M legend · Q quality · C cheats
-
-Source-of-truth private repo: `usabandit33/ethereal-expanse`
+Cheats: `abysswyrm` · `100pearls` · `fullrep` · `allgems` · `fuelup` · `undying`
