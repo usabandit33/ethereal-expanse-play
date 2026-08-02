@@ -1,14 +1,15 @@
-# Ethereal Expanse v10 — Live Play
+# Ethereal Expanse — Live Play
 
-**Play (after one upload):** https://usabandit33.github.io/ethereal-expanse-play/
+**Latest: v8.1** — connectable ponds · Ground Drake blocked by water · Drake HP 56
 
-## Deploy the game file (30 seconds)
+**Play:** https://usabandit33.github.io/ethereal-expanse-play/
 
-1. Download the latest `ethereal-expanse-v10.html` from the Grok artifacts / Desktop project, or use the version produced by the self-improving loop.
-2. On this repo: **Add file → Upload files** → drop `ethereal-expanse-v10.html` → Commit (replace any placeholder if present).
-3. **Settings → Pages** → Deploy from **main** / **(root)** → Save.
-4. Open https://usabandit33.github.io/ethereal-expanse-play/
+## v8.1
+- Dig (**G**) near other holes to **connect a pond**
+- Ground Drake **cannot cross water** — dig a moat to control the fight
+- Ground Drake HP **56** (was 28)
 
-`index.html` auto-redirects once the game file is present.
+## Controls
+WASD · LMB/F beam · E chop · B camp · **G dig** · V car · P pause · M legend · Q quality · C cheats
 
-See `ethereal-expanse-v10_changelog.md` for the exact player-problem fixes in this iteration (persistent objectives + vertical-slice complete feedback).
+Cheats: `abysswyrm` · `grounddrake` · `shovel` · `undying` · `fuelup`
