@@ -1,10 +1,10 @@
 # Ethereal Expanse — Live Play
 
-**Latest: v11** — visible castle ramp · post-lap armor upgrade · minimap castle/car/water · dig ponds (G)
+**Latest: v9** — visible castle ramp · post-lap armor · minimap castle/car/water · dig ponds (G)
 
 **Play:** https://usabandit33.github.io/ethereal-expanse-play/
 
-## v11
+## v9
 - Castle ramp is visually distinct (warmer stone + rails + steps); tighter climb snap
 - Completing the coin lap awards **helmet + armor** and a clear free-play objective
 - Minimap marks **Castle** (diamond) and **Car** (ringed); player-dug **Water** holes shown
