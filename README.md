@@ -1,12 +1,14 @@
 # Ethereal Expanse — Live Play
 
-**Latest: v13** — Player feels dug water (slow + bob + ripples) · Void Walkers treat ponds as barriers · visible ramp · post-lap armor · minimap Castle/Car/Water · dig (G)
+**Latest: v14** — Post-slice night pressure (Void Walkers more aggressive at night after armor) · always-visible early objective · fuel discoverability pulse on car · ramp edge readability · player + AI water feel · dig ponds · post-lap armor
 
 **Play:** https://usabandit33.github.io/ethereal-expanse-play/
 
-## v13
-- Standing in a dug water hole: 0.6× move speed, subtle bob, cyan ripple particles
-- Void Walkers strongly repel from water holes and pond bridges (from v12)
+## v14
+- After armor + night: longer lunge range, shorter respawn/cooldown (same enemies, no new systems)
+- Objective line always shows primary goal from start
+- Near car with 0 fuel: fuel bar pulse + underglow oscillation
+- Ramp + rails faint emissive for mid-distance climb path
 
 ## Controls
 WASD · LMB/F beam · E chop · B camp · **G dig** · V car · P pause · M legend · Q quality · C cheats
