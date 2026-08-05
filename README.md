@@ -1,14 +1,14 @@
 # Ethereal Expanse — Live Play
 
-**Latest: v14** — Post-slice night pressure (Void Walkers more aggressive at night after armor) · always-visible early objective · fuel discoverability pulse on car · ramp edge readability · player + AI water feel · dig ponds · post-lap armor
+**Latest: v15** — Escalating Void Walkers (more + tougher over time) · Abyssal Hunter ground dragon after flying Wyrm dies · fire breath on both dragons · mid-slice gem bias toward eastern castle · all prior water / night pressure / car / dig systems
 
 **Play:** https://usabandit33.github.io/ethereal-expanse-play/
 
-## v14
-- After armor + night: longer lunge range, shorter respawn/cooldown (same enemies, no new systems)
-- Objective line always shows primary goal from start
-- Near car with 0 fuel: fuel bar pulse + underglow oscillation
-- Ramp + rails faint emissive for mid-distance climb path
+## v15
+- Void Walkers gain HP/scale tiers from play time + pearls; periodic reinforcement waves (cap 18)
+- After flying Wyrm dies → ground dragon pursues player and breathes fire
+- Flying Wyrm also breathes fire
+- ~40% of Resonance Gems clustered toward the castle approach
 
 ## Controls
 WASD · LMB/F beam · E chop · B camp · **G dig** · V car · P pause · M legend · Q quality · C cheats
