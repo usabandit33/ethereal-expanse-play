@@ -1,1 +1,35 @@
-PLACEHOLDER
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ethereal Expanse v16</title>
+  <style>
+    body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+      background:#02040c; color:#d4e4ff; font-family:system-ui,sans-serif; text-align:center; }
+    a { color:#5ce1ff; }
+    .card { background:linear-gradient(160deg,#141428,#0e1020); border:1px solid rgba(100,140,255,0.35);
+      border-radius:16px; padding:28px 32px; max-width:520px; box-shadow:0 0 40px rgba(60,100,255,0.2); }
+    h1 { color:#9ab8ff; margin-top:0; }
+  </style>
+  <script>
+    (async () => {
+      for (const f of ['ethereal-expanse-v16.html','ethereal-expanse-v15.html','ethereal-expanse-v14.html','ethereal-expanse-v13.html','ethereal-expanse-v9.html']) {
+        try {
+          const r = await fetch(f, { method: 'HEAD' });
+          if (!r.ok) continue;
+          const t = await fetch(f).then(x => x.text());
+          if (t.length > 50000) { location.replace(f); return; }
+        } catch (_) {}
+      }
+    })();
+  </script>
+</head>
+<body>
+  <div class="card">
+    <h1>Ethereal Expanse v16</h1>
+    <p>Web Audio SFX · escalating Void Walkers · ground dragon · fire breath · castle gem bias</p>
+    <p><a href="ethereal-expanse-v16.html">Play ethereal-expanse-v16.html</a></p>
+  </div>
+</body>
+</html>
