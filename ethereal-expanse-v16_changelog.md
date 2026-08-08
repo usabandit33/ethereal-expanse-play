@@ -1,7 +1,7 @@
 # Ethereal Expanse v16 Changelog
 
 **Base:** ethereal-expanse-v15.html  
-**Date:** 2026-08-07  
+**Date:** 2026-08-08  
 **Type:** Audio feedback for combat & escalation (player problem: silent world)
 
 ## Player problems addressed
@@ -25,7 +25,8 @@
 
 ## Validation
 
-- Structure intact; SFX helpers present and wired (fire, reinforce, gem, hit, camp, vehicle, boss).  
+- JS syntax: clean (`node --check` on extracted script).  
+- SFX helpers present and wired (fire, reinforce, gem, hit, camp, vehicle, boss).  
 - No systems removed.  
 - Existing features unchanged.
 
@@ -40,8 +41,8 @@
 | User Experience   | 9     | Combat & escalation now have sonic punch. |
 | Stability         | 8     | Guarded AudioContext + resume on gesture. |
 
-**Biggest remaining weakness:** Single-file size (~125 KB+) and no real spatial/positional audio or music bed; open plains still light on mid-game variety beyond gem bias.  
-**Highest-value next improvement:** Optional soft ambient pad (very low volume sine bed that shifts with day/night) or further progressive onboarding toasts that only appear on first use of dig/chop/car so the pause wall-of-text can shrink.
+**Biggest remaining weakness:** Single-file size (~125 KB) and no real spatial/positional audio or music bed; open plains still light on mid-game variety beyond gem bias; pause menu still a wall of text.  
+**Highest-value next improvement:** Progressive first-use toasts (dig / chop / car) so the pause menu can shrink, OR a single very-low-volume ambient day/night pad using the existing Web Audio helpers.
 
 ## Prompt for next implementation
 
