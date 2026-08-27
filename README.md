@@ -7,6 +7,9 @@
 
 Open the highest `ethereal-expanse-vN.html` that is actually >50 KB (currently **v15** on this repo).
 
+## CI — Build gate
+`.github/workflows/build-gate.yml` fails any commit that adds/changes an `ethereal-expanse-vN.html` under 50 KB. It also smokes the highest real full build (`node --check`, `THREE` / `gameState` / `animate`, and `sfx` + `applyLoadedSave` once the canonical file is v30+). Headless Chromium job opens that HTML and asserts `#game-canvas`. See `BUILD-GATE.md`.
+
 ## v30 (this iteration, source in changelog + artifacts)
 - Web Audio SFX (shoot, hits, fire, pickups, camp, dig, vehicle, armor, load)
 - Pause menu Load Progress for the existing Save JSON
