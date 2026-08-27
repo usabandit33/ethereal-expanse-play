@@ -1,16 +1,19 @@
 # Ethereal Expanse — Live Play
 
-**Canonical full build: v30** (~130 KB) — Web Audio SFX + Load Progress, on top of all v15 systems.
+**Playable on GitHub Pages: v15** (~123 KB full build).
+**Latest loop work: v30** (SFX + Load Progress) — full HTML lives in the iteration artifacts; do not treat tiny placeholder `vN.html` files as builds.
 
 **Play:** https://usabandit33.github.io/ethereal-expanse-play/
 
-Open `ethereal-expanse-v30.html` (or the highest full build >50 KB). Ignore tiny placeholder files from earlier loop runs.
+Open the highest `ethereal-expanse-vN.html` that is actually >50 KB (currently **v15** on this repo).
 
-## v30
-- Zero-asset Web Audio tones for fire breath, walker hits, reinforcements, pickups, damage, camp, dig, vehicle enter, armor, load
-- Pause menu **Load Progress** reads the JSON that Save Progress already wrote
-- Audio unlocks on first gesture; muted on Low quality; soft-fails if AudioContext is missing
-- All v15: Escalating Void Walkers · Abyssal Hunter · fire breath · castle gem bias · water / night pressure / car / dig / camps / armor
+## v30 (this iteration, source in changelog + artifacts)
+- Web Audio SFX (shoot, hits, fire, pickups, camp, dig, vehicle, armor, load)
+- Pause menu Load Progress for the existing Save JSON
+- Built from v15; v16–v29 HTML files in history were stubs — ignored
+
+## v15 (what Pages serves today)
+Escalating Void Walkers · Abyssal Hunter · fire breath · castle gem bias · water / night / car / dig / camps / armor
 
 ## Controls
 WASD · LMB/F beam · E chop · B camp · **G dig** · V car · P pause · M legend · Q quality · C cheats
