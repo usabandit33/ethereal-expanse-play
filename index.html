@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <meta name="description" content="Ethereal Expanse — Three.js browser combat + racing sandbox.">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Ethereal Expanse">
   <meta property="og:description" content="Browser combat + racing sandbox. WASD, camps, the Wyrm.">
+  <meta property="og:url" content="https://usabandit33.github.io/ethereal-expanse-play/ethereal-expanse-v30.html">
   <meta property="og:image" content="https://usabandit33.github.io/ethereal-expanse-play/public/og.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -15,54 +15,35 @@
   <meta name="twitter:title" content="Ethereal Expanse">
   <meta name="twitter:image" content="https://usabandit33.github.io/ethereal-expanse-play/public/og.jpg">
   <meta property="x:game:image" content="https://usabandit33.github.io/ethereal-expanse-play/public/x-banner.jpg">
+  <title>Ethereal Expanse</title>
+  <link rel="canonical" href="https://usabandit33.github.io/ethereal-expanse-play/ethereal-expanse-v30.html">
+  <meta http-equiv="refresh" content="0;url=https://usabandit33.github.io/ethereal-expanse-play/ethereal-expanse-v30.html">
   <script>
   (function () {
+    var ENTRY = 'https://usabandit33.github.io/ethereal-expanse-play/ethereal-expanse-v30.html';
     var host = location.host || '';
-    var allowed = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host) || /\.github\.io$/.test(host);
-    if (!allowed) return;
-    var dir = location.pathname.replace(/[^/]*$/, '');
-    var origin = location.protocol + '//' + host;
-    var ogImage = origin + dir + 'public/og.jpg';
-    var xBanner = origin + dir + 'public/x-banner.jpg';
-    function setProp(prop, value) {
-      document.querySelectorAll('meta[property="' + prop + '"]').forEach(function (el) { el.setAttribute('content', value); });
+    var allowed = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host)
+      || /\.github\.io$/.test(host)
+      || /\.grok\.me$/.test(host);
+    if (allowed) {
+      var dir = location.pathname.replace(/[^/]*$/, '');
+      var origin = location.protocol + '//' + host;
+      var ogImage = origin + dir + 'public/og.jpg';
+      var xBanner = origin + dir + 'public/x-banner.jpg';
+      document.querySelectorAll('meta[property="og:image"]').forEach(function (el) { el.setAttribute('content', ogImage); });
+      document.querySelectorAll('meta[name="twitter:image"]').forEach(function (el) { el.setAttribute('content', ogImage); });
+      document.querySelectorAll('meta[property="x:game:image"]').forEach(function (el) { el.setAttribute('content', xBanner); });
     }
-    function setName(name, value) {
-      document.querySelectorAll('meta[name="' + name + '"]').forEach(function (el) { el.setAttribute('content', value); });
-    }
-    setProp('og:image', ogImage);
-    setName('twitter:image', ogImage);
-    setProp('x:game:image', xBanner);
+    location.replace(ENTRY);
   })();
   </script>
-
-  <title>Ethereal Expanse</title>
   <style>
     body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
       background:#02040c; color:#d4e4ff; font-family:system-ui,sans-serif; text-align:center; }
     a { color:#5ce1ff; }
-    .card { background:linear-gradient(160deg,#141428,#0e1020); border:1px solid rgba(100,140,255,0.35);
-      border-radius:16px; padding:28px 32px; max-width:520px; box-shadow:0 0 40px rgba(60,100,255,0.2); }
-    h1 { color:#9ab8ff; margin-top:0; }
   </style>
-  <script>
-    (async () => {
-      for (const f of ['ethereal-expanse-v30.html','ethereal-expanse-v15.html','ethereal-expanse-v13.html','ethereal-expanse-v9.html','ethereal-expanse-v8.html','ethereal-expanse-v7.html']) {
-        try {
-          const r = await fetch(f, { method: 'HEAD' });
-          if (!r.ok) continue;
-          const t = await fetch(f).then(x => x.text());
-          if (t.length > 50000) { location.replace(f); return; }
-        } catch (_) {}
-      }
-    })();
-  </script>
 </head>
 <body>
-  <div class="card">
-    <h1>Ethereal Expanse</h1>
-    <p>Serving the latest full build &gt;50KB.</p>
-    <p><a href="ethereal-expanse-v15.html">Play v15</a> · <a href="ethereal-expanse-v30.html">Play v30</a></p>
-  </div>
+  <p>Opening <a href="https://usabandit33.github.io/ethereal-expanse-play/ethereal-expanse-v30.html">Ethereal Expanse v30</a>…</p>
 </body>
 </html>
