@@ -1,24 +1,46 @@
 # Ethereal Expanse — Live Play
 
-**Playable on GitHub Pages: v15** (~123 KB full build).
-**Latest loop work: v30** (SFX + Load Progress) — full HTML lives in the iteration artifacts; do not treat tiny placeholder `vN.html` files as builds.
+Three.js browser combat + racing sandbox.
 
-**Play:** https://usabandit33.github.io/ethereal-expanse-play/
+**Play (GitHub Pages):** https://usabandit33.github.io/ethereal-expanse-play/
 
-Open the highest `ethereal-expanse-vN.html` that is actually >50 KB (currently **v15** on this repo).
+## Branches
 
-## CI — Build gate
-`.github/workflows/build-gate.yml` fails any commit that adds/changes an `ethereal-expanse-vN.html` under 50 KB. It also smokes the highest real full build (`node --check`, `THREE` / `gameState` / `animate`, and `sfx` + `applyLoadedSave` once the canonical file is v30+). Headless Chromium job opens that HTML and asserts `#game-canvas`. See `BUILD-GATE.md`.
+| Branch | Purpose |
+|--------|---------|
+| `main` | Stable / Pages |
+| `develop` | Active development & WIP |
 
-## v30 (this iteration, source in changelog + artifacts)
-- Web Audio SFX (shoot, hits, fire, pickups, camp, dig, vehicle, armor, load)
-- Pause menu Load Progress for the existing Save JSON
-- Built from v15; v16–v29 HTML files in history were stubs — ignored
+## Repo layout
 
-## v15 (what Pages serves today)
-Escalating Void Walkers · Abyssal Hunter · fire breath · castle gem bias · water / night / car / dig / camps / armor
+```
+index.html                 # Pages entry (current playable)
+versions/
+  builds/                  # Full ethereal-expanse-vN.html builds (>50KB)
+  changelogs/              # ethereal-expanse-vN_changelog.md
+scripts/                   # build-gate + smoke tests
+public/                    # OG / banner assets
+```
+
+## Latest build
+
+Prefer the highest `versions/builds/ethereal-expanse-vN.html` over **50 KB**.
+As of the develop reorg, **v36** is the newest full build. Root `index.html` may lag until promoted from `develop` → `main`.
 
 ## Controls
-WASD · LMB/F beam · E chop · B camp · **G dig** · V car · P pause · M legend · Q quality · C cheats
 
-Cheats: `abysswyrm` · `100pearls` · `fullrep` · `allgems` · `fuelup` · `undying`
+WASD · LMB/F beam · E chop · T cube · B camp · G dig · **R capture** · **K craft sword** · V car · P pause · M legend · Q quality · C cheats
+
+## CI
+
+`.github/workflows/build-gate.yml` rejects versioned HTML under 50KB and smokes the canonical full build. See `BUILD-GATE.md`.
+
+## Development
+
+```bash
+git clone https://github.com/usabandit33/ethereal-expanse-play.git
+cd ethereal-expanse-play
+git checkout develop
+# edit versions/builds/ethereal-expanse-vN.html
+# add versions/changelogs/ethereal-expanse-vN_changelog.md
+```
