@@ -1,0 +1,4289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ethereal Expanse v36</title>
+  <style>
+    :root {
+      --ui-bg: rgba(8, 12, 28, 0.78);
+      --ui-text: #d4e4ff;
+      --ui-accent: #5ce1ff;
+      --ui-gold: #ffb74d;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      overflow: hidden;
+      background: #02040c;
+      font-family: 'Segoe UI', system-ui, Georgia, serif;
+      height: 100vh; width: 100vw;
+      user-select: none; -webkit-user-select: none;
+    }
+    #game-canvas { position: fixed; inset: 0; z-index: 1; display: block; }
+    #vignette {
+      position: fixed; inset: 0; z-index: 4; pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 4, 20, 0.72) 100%);
+    }
+    #rep-glow {
+      position: fixed; inset: 0; z-index: 3; pointer-events: none;
+      border: 4px solid transparent; transition: border-color 0.4s, box-shadow 0.4s;
+    }
+    #rep-glow.pulse {
+      border-color: rgba(255, 180, 60, 0.45);
+      box-shadow: inset 0 0 80px rgba(255, 160, 40, 0.22);
+    }
+    #crosshair {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      z-index: 8; pointer-events: none; width: 18px; height: 18px; opacity: 0.5;
+    }
+    #crosshair::before, #crosshair::after {
+      content: ''; position: absolute; background: rgba(220, 240, 255, 0.65);
+    }
+    #crosshair::before { width: 2px; height: 18px; left: 8px; top: 0; }
+    #crosshair::after { width: 18px; height: 2px; top: 8px; left: 0; }
+
+    #hud {
+      position: fixed; top: 22px; left: 50%; transform: translateX(-50%);
+      z-index: 10; display: flex; gap: 10px; pointer-events: none;
+      flex-wrap: wrap; justify-content: center;
+    }
+    .hud-panel {
+      background: var(--ui-bg); padding: 8px 16px; border-radius: 24px;
+      border: 1px solid rgba(140, 190, 255, 0.28);
+      box-shadow: 0 0 18px rgba(0, 140, 220, 0.18);
+      display: flex; align-items: center; gap: 8px;
+      backdrop-filter: blur(10px); color: var(--ui-text); font-size: 14px;
+    }
+    .hud-panel .value { font-weight: 700; font-size: 17px; color: #fff; min-width: 26px; text-align: center; }
+    .hud-panel .label { font-size: 10px; color: #9ab; letter-spacing: 1px; text-transform: uppercase; }
+
+    #boss-hp-container {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+      z-index: 10; pointer-events: none; display: none;
+      flex-direction: column; align-items: center; gap: 4px;
+    }
+    #boss-hp-bar {
+      width: 280px; height: 11px; background: rgba(20, 8, 28, 0.75);
+      border: 1px solid #9b5cff; border-radius: 8px; overflow: hidden;
+    }
+    #boss-hp-fill {
+      width: 100%; height: 100%;
+      background: linear-gradient(90deg, #4a00a8, #c44cff);
+      transition: width 0.18s ease;
+    }
+    #boss-hp-text { color: #e0c0ff; font-size: 11px; letter-spacing: 0.5px; text-shadow: 0 0 10px #aa55ff; }
+
+    #badge {
+      position: fixed; top: 28px; right: 130px; z-index: 10; pointer-events: none;
+      display: none; font-size: 20px; color: #ffd56a;
+      text-shadow: 0 0 18px #ff9a2a; animation: badgePulse 1.6s infinite;
+    }
+    @keyframes badgePulse {
+      0%, 100% { transform: scale(1); opacity: 0.95; }
+      50% { transform: scale(1.12); opacity: 1; }
+    }
+
+    #rep-title {
+      position: fixed; top: 78px; left: 50%; transform: translateX(-50%);
+      z-index: 10; pointer-events: none; font-size: 10px; color: #ffcc80;
+      letter-spacing: 2px; text-transform: uppercase;
+      text-shadow: 0 0 10px rgba(255, 160, 50, 0.6);
+    }
+
+    #time-indicator {
+      position: fixed; top: 28px; right: 28px; z-index: 10;
+      color: #ffe8c0; font-size: 11px; background: var(--ui-bg);
+      padding: 6px 14px; border-radius: 18px;
+      border: 1px solid rgba(255, 180, 100, 0.22);
+    }
+
+    #minimap-container {
+      position: fixed; bottom: 22px; right: 22px; z-index: 10;
+      width: 168px; height: 168px; border-radius: 50%;
+      border: 3px solid rgba(150, 200, 255, 0.4);
+      overflow: hidden; background: rgba(6, 12, 28, 0.82);
+      box-shadow: 0 0 20px rgba(0, 80, 160, 0.25);
+    }
+    #minimap { width: 100%; height: 100%; border-radius: 50%; }
+    #minimap-label {
+      position: fixed; bottom: 196px; right: 52px; z-index: 11;
+      color: #bcd; font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+      pointer-events: none; text-shadow: 0 0 8px rgba(0, 160, 240, 0.6);
+    }
+
+    #toast {
+      position: fixed; top: 42%; left: 50%; transform: translate(-50%, -50%) scale(0.6);
+      z-index: 20; pointer-events: none; font-size: 24px; font-weight: 700;
+      text-shadow: 0 0 28px #fff; transition: transform 0.3s, opacity 0.35s;
+      opacity: 0; color: #e8f4ff; letter-spacing: 1px;
+    }
+    #toast.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+
+    #pause-overlay {
+      position: fixed; inset: 0; z-index: 100; background: rgba(2, 4, 12, 0.78);
+      display: none; justify-content: center; align-items: center; flex-direction: column;
+      backdrop-filter: blur(6px);
+    }
+    #pause-panel {
+      background: linear-gradient(160deg, #141428, #0e1020);
+      padding: 28px 32px; border-radius: 16px;
+      border: 1px solid rgba(100, 140, 255, 0.35);
+      max-width: 520px; width: 92%; color: var(--ui-text);
+      font-size: 13.5px; line-height: 1.65;
+      box-shadow: 0 0 40px rgba(60, 100, 255, 0.22);
+    }
+    #pause-panel h2 { text-align: center; margin-bottom: 18px; color: #9ab8ff; font-weight: 600; letter-spacing: 1px; }
+    #pause-panel .key { color: #ffd090; font-weight: 700; }
+    #pause-panel .cheat { color: #ff9abb; }
+    #pause-panel small { display: block; margin-top: 18px; color: #6a7a9a; text-align: center; font-size: 12px; }
+    #pause-panel .section { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(100, 130, 200, 0.2); }
+
+    #cheat-box {
+      position: fixed; top: 90px; left: 50%; transform: translateX(-50%); z-index: 30;
+      display: none; background: rgba(4, 6, 18, 0.9); padding: 10px 16px;
+      border-radius: 10px; border: 1px solid #9b7cff;
+      box-shadow: 0 0 24px rgba(120, 80, 255, 0.3);
+    }
+    #cheat-input {
+      background: transparent; border: none; color: #f0e8ff;
+      font-size: 15px; outline: none; width: 220px; font-family: inherit;
+    }
+
+
+    /* ===== Onboarding tutorial overlay ===== */
+    #tutorial-overlay {
+      position: fixed; inset: 0; z-index: 90;
+      background: rgba(2, 4, 14, 0.55);
+      display: flex; justify-content: center; align-items: center;
+      pointer-events: auto; backdrop-filter: blur(3px);
+      transition: opacity 0.4s;
+    }
+    #tutorial-overlay.hidden { opacity: 0; pointer-events: none; }
+    #tutorial-card {
+      background: linear-gradient(160deg, rgba(18,20,42,0.95), rgba(10,12,28,0.95));
+      padding: 22px 28px; border-radius: 14px;
+      border: 1px solid rgba(100, 160, 255, 0.35);
+      max-width: 420px; width: 90%; color: var(--ui-text);
+      font-size: 13.5px; line-height: 1.7;
+      box-shadow: 0 0 36px rgba(40, 100, 220, 0.25);
+      text-align: left;
+    }
+    #tutorial-card h3 { text-align: center; color: #9ab8ff; margin-bottom: 12px; letter-spacing: 1px; font-weight: 600; }
+    #tutorial-card .key { color: #ffd090; font-weight: 700; }
+    #tutorial-card .hint { display: block; margin-top: 14px; text-align: center; color: #7a8aaa; font-size: 11px; }
+
+    #fuel-bar-wrap {
+      width: 80px; height: 12px; background: rgba(20,12,8,0.75);
+      border-radius: 7px; overflow: hidden; border: 1px solid rgba(255,180,80,0.4);
+      box-shadow: inset 0 0 4px rgba(0,0,0,0.4);
+    }
+    #fuel-bar-fill {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, #c45a00, #ffcc44);
+      transition: width 0.15s ease, background 0.25s ease;
+    }
+    #fuel-bar-fill.low {
+      background: linear-gradient(90deg, #8a1000, #ff4422);
+    }
+    #fuel-bar-fill.pulse {
+      animation: fuelPulse 0.45s ease 2;
+    }
+    @keyframes fuelPulse {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.8); }
+    }
+    #health-bar-wrap {
+      position: fixed; top: 68px; left: 50%; transform: translateX(-50%);
+      z-index: 10; pointer-events: none; display: flex; gap: 4px; align-items: center;
+    }
+    .heart {
+      width: 16px; height: 14px; background: #c03040;
+      clip-path: path('M8 14 L1.5 7.5 A3.5 3.5 0 0 1 8 2.5 A3.5 3.5 0 0 1 14.5 7.5 Z');
+      opacity: 0.95; transition: opacity 0.2s, transform 0.15s;
+    }
+    .heart.empty { background: #3a2030; opacity: 0.45; }
+    .heart.hit { transform: scale(1.25); }
+    #edge-flash {
+      position: fixed; inset: 0; z-index: 5; pointer-events: none;
+      border: 6px solid transparent; opacity: 0; transition: opacity 0.15s;
+    }
+    #edge-flash.show {
+      opacity: 1;
+      border-color: rgba(120, 220, 255, 0.55);
+      box-shadow: inset 0 0 60px rgba(80, 200, 255, 0.25);
+    }
+    #minimap-legend {
+      position: fixed; bottom: 200px; right: 12px; z-index: 11;
+      background: rgba(6, 12, 28, 0.88); padding: 6px 10px; border-radius: 8px;
+      border: 1px solid rgba(120, 180, 255, 0.3); font-size: 9px; color: #cde;
+      line-height: 1.55; pointer-events: none; display: none; max-width: 140px;
+    }
+    #minimap-legend.pinned { display: block; }
+    #minimap-key {
+      position: fixed; bottom: 196px; right: 14px; z-index: 11;
+      font-size: 9px; color: rgba(180,200,240,0.55); pointer-events: none;
+      letter-spacing: 0.5px;
+    }
+    #minimap-legend span { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+    #save-row { margin-top: 12px; display: flex; gap: 8px; align-items: center; justify-content: center; }
+    #save-name {
+      background: rgba(10,14,30,0.9); border: 1px solid rgba(120,160,255,0.4);
+      color: #e0e8ff; padding: 6px 10px; border-radius: 8px; font-size: 13px; width: 160px;
+    }
+    #save-btn {
+      background: linear-gradient(160deg, #2a4a8a, #1a3060); border: 1px solid #6a9aff;
+      color: #d0e0ff; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 13px;
+    }
+    #save-btn:hover { background: linear-gradient(160deg, #3a5a9a, #2a4070); }
+    #load-btn {
+      background: linear-gradient(160deg, #2a6a5a, #1a4038); border: 1px solid #6affc0;
+      color: #d0ffe8; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 13px;
+      display: inline-flex; align-items: center;
+    }
+    #load-btn:hover { background: linear-gradient(160deg, #3a7a6a, #2a5048); }
+    #load-file { display: none; }
+    #objective-line {
+      position: fixed; top: 112px; left: 50%; transform: translateX(-50%);
+      z-index: 10; pointer-events: none; display: none;
+      background: var(--ui-bg); padding: 6px 16px; border-radius: 16px;
+      border: 1px solid rgba(255, 200, 100, 0.35);
+      color: #ffe0a0; font-size: 12px; letter-spacing: 0.5px;
+      box-shadow: 0 0 16px rgba(255, 160, 40, 0.2);
+      white-space: nowrap; max-width: 92vw; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    #free-aim-hint {
+      position: fixed; top: 48%; left: 50%; transform: translate(-50%, -50%);
+      z-index: 9; pointer-events: none; display: none;
+      color: #ff88cc; font-size: 11px; letter-spacing: 2px;
+      text-shadow: 0 0 12px #ff44aa; opacity: 0.85;
+    }
+    #crosshair.free-aim::before, #crosshair.free-aim::after {
+      background: rgba(255, 120, 200, 0.85);
+    }
+    #crosshair.auto-lock::before, #crosshair.auto-lock::after {
+      background: rgba(80, 240, 255, 1);
+      box-shadow: 0 0 8px rgba(80, 240, 255, 0.9);
+    }
+    #crosshair.auto-lock {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1.4);
+      width: 22px; height: 22px;
+    }
+    #crosshair.auto-lock::before { width: 2px; height: 22px; left: 10px; }
+    #crosshair.auto-lock::after { width: 22px; height: 2px; top: 10px; }
+    #aim-line {
+      position: fixed; top: 50%; left: 50%; z-index: 7; pointer-events: none;
+      width: 3px; height: 56px; margin-left: -1.5px; margin-top: -64px;
+      background: linear-gradient(to top, rgba(80,240,255,0.0), rgba(80,240,255,0.95));
+      opacity: 0; transition: opacity 0.1s; transform-origin: bottom center;
+      box-shadow: 0 0 10px rgba(80, 240, 255, 0.6);
+    }
+    #aim-line.show { opacity: 1; }
+    #car-hint {
+      position: fixed; bottom: 88px; left: 50%; transform: translateX(-50%);
+      z-index: 10; pointer-events: none; display: none;
+      background: var(--ui-bg); padding: 6px 14px; border-radius: 14px;
+      border: 1px solid rgba(255, 210, 80, 0.4);
+      color: #ffe8a0; font-size: 12px; letter-spacing: 0.3px;
+      box-shadow: 0 0 14px rgba(255, 180, 40, 0.25);
+    }
+    #quality-hint {
+      position: fixed; bottom: 12px; left: 16px; z-index: 9;
+      font-size: 10px; color: rgba(180, 200, 240, 0.45); pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+  <div id="vignette"></div>
+  <div id="rep-glow"></div>
+  <div id="edge-flash"></div>
+  <div id="crosshair"></div>
+  <div id="aim-line"></div>
+
+  <div id="hud">
+    <div class="hud-panel"><span>💎</span><span class="value" id="gem-count">0</span><span class="label">/25</span></div>
+    <div class="hud-panel"><span>⭐</span><span class="value" id="rep-count">0</span><span class="label">REP</span></div>
+    <div class="hud-panel"><span>🔮</span><span class="value" id="pearl-count">0</span><span class="label" id="pearl-label">/3</span></div>
+    <div class="hud-panel"><span>🪵</span><span class="value" id="wood-count">0</span><span class="label">WOOD</span></div>
+    <div class="hud-panel"><span>🪨</span><span class="value" id="rock-count">0</span><span class="label">ROCKS</span></div>
+    <div class="hud-panel"><span>🐉</span><span class="value" id="scale-count">0</span><span class="label">SCALES</span></div>
+    <div class="hud-panel" id="sword-panel" style="display:none"><span>⚔️</span><span class="value" id="sword-flag">SWORD</span></div>
+    <div class="hud-panel"><span>🪙</span><span class="value" id="coin-count">0</span><span class="label">COINS</span></div>
+    <div class="hud-panel"><span>⛽</span><span class="value" id="fuel-count">0</span><span class="label">FUEL</span>
+      <div id="fuel-bar-wrap"><div id="fuel-bar-fill"></div></div>
+    </div>
+  </div>
+  <div id="health-bar-wrap" aria-label="Health">
+    <div class="heart" data-i="0"></div>
+    <div class="heart" data-i="1"></div>
+    <div class="heart" data-i="2"></div>
+    <div class="heart" data-i="3"></div>
+    <div class="heart" data-i="4"></div>
+  </div>
+  <div id="objective-line"></div>
+  <div id="car-hint">Collect gold coins to fuel the car (V to enter)</div>
+  <div id="free-aim-hint">FREE AIM</div>
+  <div id="badge">🏆 ABYSS SLAYER</div>
+  <div id="rep-title">WANDERER</div>
+  <div id="boss-hp-container">
+    <div id="boss-hp-text">ABYSSAL WYRM</div>
+    <div id="boss-hp-bar"><div id="boss-hp-fill"></div></div>
+  </div>
+  <div id="time-indicator">☀️ DAYLIGHT</div>
+  <div id="minimap-label">NAVIGATION</div>
+  <div id="minimap-key">M · legend</div>
+  <div id="minimap-legend">
+    <div><span style="background:#fff"></span> You</div>
+    <div><span style="background:#40e0ff"></span> Gems</div>
+    <div><span style="background:#ffd24a"></span> Coins</div>
+    <div><span style="background:#ff55cc"></span> Void Walkers</div>
+    <div><span style="background:#4aa0ff"></span> Car</div>
+    <div><span style="background:#c0b090"></span> Castle</div>
+    <div><span style="background:#2ab0e0"></span> Water</div>
+    <div><span style="background:#8a6230"></span> Cubes</div>
+    <div><span style="background:#90ee90"></span> Companions</div>
+    <div><span style="background:#4a7a4a"></span> Wild animals</div>
+  </div>
+  <div id="minimap-container"><canvas id="minimap" width="168" height="168"></canvas></div>
+  <div id="toast"></div>
+
+  <!-- ===== First-load tutorial (dismisses permanently this session) ===== -->
+  <div id="tutorial-overlay">
+    <div id="tutorial-card">
+      <h3>✦ WELCOME TO THE EXPANSE</h3>
+      <p><span class="key">Click</span> the screen to look around with the mouse.</p>
+      <p><span class="key">WASD</span> move · <span class="key">Shift</span> run · <span class="key">Space</span> jump</p>
+      <p><span class="key">Left-click</span> or <span class="key">F</span> fire aether beam (auto-aims Void Walkers)</p>
+      <p><span class="key">E</span> chop trees (Wood) · <span class="key">T</span> place wood cube (2 Wood, stacks) · <span class="key">B</span> camp · <span class="key">G</span> dig</p>
+      <p><span class="key">V</span> enter / exit the driveable car · coins fuel the engine</p>
+      <p><span class="key">R</span> capture animals · dogs need 10 rocks · beaver needs 10 trees</p>
+      <p><span class="key">K</span> craft sword (20 rocks + 20 wood) · horses shield you · chickens assault the Wyrm at 10 companions</p>
+      <p>Collect Resonance Gems &amp; gold coins. Defeat Void Walkers for pearls.</p>
+      <p>Gather <span class="key">3 pearls</span> → Abyssal Wyrm. Climb the eastern castle. Drive for speed.</p>
+      <span class="hint">Press any key or click to begin</span>
+    </div>
+  </div>
+  <div id="quality-hint">P/Esc pause · E chop · T cube · B camp · G dig · R capture · K craft sword · V drive · F beam · Q quality · C cheats</div>
+
+  <div id="pause-overlay">
+    <div id="pause-panel">
+      <h2>⚔️ ETHEREAL EXPANSE — PAUSED</h2>
+      <p><span class="key">Click</span> the screen to look around with the mouse (pointer lock).</p>
+      <p><span class="key">WASD</span> move · <span class="key">Shift</span> run · <span class="key">Space</span> jump</p>
+      <p><span class="key">Left-click</span> or <span class="key">F</span> fire aether beam (auto-aims Void Walkers; works in car)</p>
+      <p><span class="key">E</span> chop trees (Wood) · <span class="key">T</span> place wood cube (2 Wood) — stacks; walkers cannot break; dragons can</p>
+      <p><span class="key">B</span> place camp (5 Wood, max 3) — fires repel Void Walkers</p>
+      <p><span class="key">G</span> dig water holes · dig near another hole to connect a pond</p>
+      <p><span class="key">V</span> enter / exit the driveable car · coins fuel the engine</p>
+      <p><span class="key">R</span> capture · dog after 10 rocks · beaver after 10 trees · leaders recruit same kind</p>
+      <p><span class="key">K</span> craft sword (20 rocks + 20 wood). Horses circle-guard. At 10 companions chickens dive the Wyrm.</p>
+      <p>Friendly builders use wood to pen cows. Dogs gather rocks; beavers gather wood.</p>
+      <p><span class="key">P / Esc</span> pause / resume · <span class="key">C</span> cheat console · <span class="key">Q</span> graphics quality</p>
+      <p><span class="key">M</span> toggle minimap legend</p>
+      <div class="section">
+        <p><strong>Goal:</strong> Collect Resonance Gems &amp; gold coins. Defeat Void Walkers for pearls. Gather <span class="key">3 pearls</span> → Abyssal Wyrm. Climb the eastern castle. Drive for speed.</p>
+        <p>While driving: camera aims the car · <span class="key">Shift</span> boost · <span class="key">Space</span> handbrake · LMB/F shoots.</p>
+        <p>Cheats: <span class="cheat">abysswyrm</span> · <span class="cheat">100pearls</span> · <span class="cheat">fullrep</span> · <span class="cheat">allgems</span> · <span class="cheat">fuelup</span> · <span class="cheat">undying</span></p>
+      <div id="save-row">
+        <input type="text" id="save-name" placeholder="Save name..." maxlength="32">
+        <button type="button" id="save-btn">Save Progress</button>
+        <label id="load-btn" for="load-file">Load Progress
+          <input type="file" id="load-file" accept=".json,application/json">
+        </label>
+      </div>
+      </div>
+      <small>Press P anytime to re-open this control reference. Browser combat sandbox.</small>
+    </div>
+  </div>
+
+  <div id="cheat-box">
+    <input type="text" id="cheat-input" placeholder="Enter cheat code..." autocomplete="off" spellcheck="false">
+  </div>
+
+  <script type="importmap">
+  {"imports": {"three": "https://unpkg.com/three@0.160.0/build/three.module.js"}}
+  </script>
+  <script type="module">
+  import * as THREE from 'three';
+
+  /* ============================================================
+   * Ethereal Expanse v32 — combat + racing foundation
+   * v36: Rocks/sword, dog rock-gather, horse shield, chicken air assault, pen NPCs, SFX fix
+   * v35: Companions — wolves/cats/beaver/cow/chicken/horse; capture + recruit leaders
+   * v34: Post-lap wanderer contracts — rotating soft goals over existing systems
+   * v32: Wooden cubes (T, 2 wood) stack; walkers cannot break; dragons can
+   * v31: Save schema restores camps, ponds, chopped trees (world state)
+   * v30: Web Audio SFX + in-game Load Progress
+   * v15: Escalating Void Walkers; ground dragon; fire breath; gem bias
+   * Prior: water, camps, dig, armor, minimap, car, quality tiers
+   * ============================================================ */
+
+  // ==================== TUNABLES ====================
+  const REQUIRED_PEARLS = 3;
+  const WYRM_HP = 120;
+  const GROUND_DRAGON_HP = 90;
+  const VOID_WALKER_COUNT = 9;
+  const VOID_WALKER_MAX = 18;          // hard cap so escalation doesn't melt the frame
+  const MAX_HEALTH = 5;
+  const GEM_COUNT = 25;
+  const MOVE_SPEED = 9.4;
+  const RUN_MULT = 1.55;
+  const PROJECTILE_SPEED = 34;
+  const JUMP_FORCE = 11.5;
+  const GRAVITY = 28;
+  const AUTO_AIM_ANGLE = 38;   // degrees
+  const AUTO_AIM_RANGE = 42;
+  const FIRE_BREATH_COOLDOWN = 2.4;    // seconds between breaths
+  const FIRE_BREATH_SPEED = 22;
+  const CUBE_WOOD_COST = 2;
+  const MAX_CUBES = 48;
+  const CUBE_SIZE = 1.2;
+  // ==================================================
+
+
+  // ==================== WEB AUDIO SFX (v30) + AMBIENT BED (v33) ====================
+  // Zero-asset oscillators. Soft-fails without AudioContext. Muted on Low quality.
+  // v34: soft looping wind + low ethereal drone (quality-gated, very quiet).
+  const sfx = (() => {
+    let ctx = null, master = null, unlocked = false;
+    let ambientGain = null, ambientNoise = null, ambientDrone = null, ambientStarted = false;
+    // v36: never block AudioContext creation on quality — mute via gain instead
+    function ensure() {
+      try {
+        if (!ctx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return null;
+          ctx = new AC();
+          master = ctx.createGain();
+          master.gain.value = (typeof quality === 'number' && quality < 1) ? 0 : 0.38;
+          master.connect(ctx.destination);
+        }
+        if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+        unlocked = true;
+        return ctx;
+      } catch (_) { return null; }
+    }
+    function applyQualityMute() {
+      if (!master || !ctx) return;
+      try {
+        const t = ctx.currentTime;
+        master.gain.cancelScheduledValues(t);
+        master.gain.linearRampToValueAtTime((quality < 1) ? 0 : 0.38, t + 0.12);
+      } catch (_) {}
+    }
+    function startAmbient() {
+      const c = ensure();
+      if (!c || ambientStarted) return;
+      if (quality < 1) return; // ambient stays off on Low; SFX still work when quality raised
+      try {
+        // Filtered noise = wind / air
+        const nLen = Math.floor(c.sampleRate * 3.5);
+        const buf = c.createBuffer(1, nLen, c.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < nLen; i++) data[i] = (Math.random() * 2 - 1);
+        ambientNoise = c.createBufferSource();
+        ambientNoise.buffer = buf;
+        ambientNoise.loop = true;
+        const bp = c.createBiquadFilter();
+        bp.type = 'bandpass'; bp.frequency.value = 380; bp.Q.value = 0.55;
+        const lp = c.createBiquadFilter();
+        lp.type = 'lowpass'; lp.frequency.value = 900;
+        ambientGain = c.createGain();
+        ambientGain.gain.value = 0;
+        ambientNoise.connect(bp); bp.connect(lp); lp.connect(ambientGain); ambientGain.connect(master);
+        ambientNoise.start();
+        // Soft low drone
+        ambientDrone = c.createOscillator();
+        ambientDrone.type = 'sine';
+        ambientDrone.frequency.value = 62;
+        const dg = c.createGain();
+        dg.gain.value = 0.018;
+        ambientDrone.connect(dg); dg.connect(ambientGain);
+        ambientDrone.start();
+        // Fade in gently
+        ambientGain.gain.linearRampToValueAtTime(0.045, c.currentTime + 2.8);
+        ambientStarted = true;
+      } catch (_) { ambientStarted = false; }
+    }
+    function setAmbientMuted(muted) {
+      if (!ambientGain || !ctx) return;
+      try {
+        const t = ctx.currentTime;
+        ambientGain.gain.cancelScheduledValues(t);
+        ambientGain.gain.linearRampToValueAtTime(muted ? 0 : 0.045, t + 0.35);
+      } catch (_) {}
+    }
+    function unlock() {
+      ensure();
+      applyQualityMute();
+      if (quality >= 1) startAmbient();
+    }
+    function tone(type, freq, dur, gain, slide) {
+      const c = ensure(); if (!c) return;
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, c.currentTime);
+      if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, slide), c.currentTime + dur);
+      g.gain.setValueAtTime(gain, c.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
+      o.connect(g); g.connect(master);
+      o.start(); o.stop(c.currentTime + dur + 0.02);
+    }
+    function noise(dur, gain, hpFreq) {
+      const c = ensure(); if (!c) return;
+      const n = Math.floor(c.sampleRate * dur);
+      const buf = c.createBuffer(1, n, c.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / n);
+      const src = c.createBufferSource(); src.buffer = buf;
+      const g = c.createGain();
+      g.gain.setValueAtTime(gain, c.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
+      if (hpFreq) {
+        const f = c.createBiquadFilter();
+        f.type = 'bandpass'; f.frequency.value = hpFreq; f.Q.value = 0.8;
+        src.connect(f); f.connect(g);
+      } else src.connect(g);
+      g.connect(master);
+      src.start();
+    }
+    return {
+      unlock,
+      startAmbient,
+      setAmbientMuted,
+      applyQualityMute,
+      shoot() { tone('square', 620, 0.07, 0.08, 180); noise(0.08, 0.06, 1800); },
+      hit() { tone('sawtooth', 140, 0.12, 0.12, 70); noise(0.1, 0.08, 400); },
+      bossHit() { tone('sawtooth', 90, 0.16, 0.14, 50); noise(0.14, 0.1, 280); },
+      collect() { tone('sine', 880, 0.12, 0.1); tone('sine', 1320, 0.16, 0.06); },
+      coin() { tone('triangle', 980, 0.1, 0.1); tone('triangle', 1470, 0.14, 0.05); },
+      pearl() { tone('sine', 520, 0.16, 0.1); tone('sine', 780, 0.22, 0.07); },
+      wood() { noise(0.12, 0.1, 500); tone('triangle', 180, 0.1, 0.06); },
+      dig() { noise(0.16, 0.1, 220); tone('sine', 140, 0.12, 0.05); },
+      camp() { tone('sine', 240, 0.2, 0.08); tone('triangle', 360, 0.28, 0.05); },
+      damage() { tone('sawtooth', 110, 0.22, 0.16, 45); noise(0.18, 0.1, 180); },
+      fire() { noise(0.28, 0.12, 320); tone('sawtooth', 70, 0.22, 0.08, 40); },
+      vehicle() { tone('square', 220, 0.08, 0.07); tone('square', 330, 0.1, 0.05); },
+      toast() { tone('sine', 660, 0.08, 0.05); },
+      reinforce() { tone('triangle', 200, 0.18, 0.08, 140); tone('sine', 400, 0.22, 0.05); },
+      armor() { tone('triangle', 330, 0.18, 0.08); tone('triangle', 495, 0.22, 0.07); tone('sine', 660, 0.28, 0.05); },
+      load() { tone('sine', 440, 0.12, 0.08); tone('sine', 660, 0.16, 0.06); }
+    };
+  })();
+  // v36: resume AudioContext on every gesture (browsers suspend aggressively)
+  const _sfxUnlock = () => sfx.unlock();
+  window.addEventListener('pointerdown', _sfxUnlock);
+  window.addEventListener('keydown', _sfxUnlock);
+  window.addEventListener('touchstart', _sfxUnlock, { passive: true });
+
+
+  // DOM
+  const canvas = document.getElementById('game-canvas');
+  const minimapCanvas = document.getElementById('minimap');
+  const minimapCtx = minimapCanvas.getContext('2d');
+  const gemCountEl = document.getElementById('gem-count');
+  const repCountEl = document.getElementById('rep-count');
+  const pearlCountEl = document.getElementById('pearl-count');
+  const pearlLabelEl = document.getElementById('pearl-label');
+  const woodCountEl = document.getElementById('wood-count');
+  const rockCountEl = document.getElementById('rock-count');
+  const swordPanel = document.getElementById('sword-panel');
+  const scaleCountEl = document.getElementById('scale-count');
+  const coinCountEl = document.getElementById('coin-count');
+  const fuelCountEl = document.getElementById('fuel-count');
+  const fuelBarFill = document.getElementById('fuel-bar-fill');
+  const objectiveLine = document.getElementById('objective-line');
+  const freeAimHint = document.getElementById('free-aim-hint');
+  const crosshairEl = document.getElementById('crosshair');
+  const edgeFlash = document.getElementById('edge-flash');
+  const minimapLegend = document.getElementById('minimap-legend');
+  const aimLineEl = document.getElementById('aim-line');
+  const carHintEl = document.getElementById('car-hint');
+  const heartEls = [...document.querySelectorAll('#health-bar-wrap .heart')];
+  const tutorialOverlay = document.getElementById('tutorial-overlay');
+  const repTitleEl = document.getElementById('rep-title');
+  const timeIndicator = document.getElementById('time-indicator');
+  const toastEl = document.getElementById('toast');
+  const repGlow = document.getElementById('rep-glow');
+  const bossHpContainer = document.getElementById('boss-hp-container');
+  const bossHpFill = document.getElementById('boss-hp-fill');
+  const badgeEl = document.getElementById('badge');
+  const pauseOverlay = document.getElementById('pause-overlay');
+  const cheatBox = document.getElementById('cheat-box');
+  const cheatInput = document.getElementById('cheat-input');
+  pearlLabelEl.textContent = `/${REQUIRED_PEARLS}`;
+
+  let quality = 2; // 2=High, 1=Medium, 0=Low
+  const qualityNames = ['Low', 'Medium', 'High'];
+
+  // Renderer
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.12;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x0c1230, 0.0046);
+  const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.4, 420);
+  camera.position.set(0, 16, 22);
+
+  // Lighting
+  const ambient = new THREE.AmbientLight(0x3a3558, 0.55);
+  scene.add(ambient);
+  const hemi = new THREE.HemisphereLight(0x8899cc, 0x1a2a18, 0.55);
+  scene.add(hemi);
+  const sunLight = new THREE.DirectionalLight(0xfff4e0, 4.6);
+  sunLight.position.set(60, 50, 40);
+  sunLight.castShadow = true;
+  sunLight.shadow.mapSize.set(2048, 2048);
+  sunLight.shadow.camera.near = 10;
+  sunLight.shadow.camera.far = 180;
+  sunLight.shadow.camera.left = sunLight.shadow.camera.bottom = -70;
+  sunLight.shadow.camera.right = sunLight.shadow.camera.top = 70;
+  sunLight.shadow.bias = -0.0004;
+  scene.add(sunLight);
+
+  // Sky
+  const skyGeo = new THREE.SphereGeometry(160, 48, 28);
+  const skyMat = new THREE.ShaderMaterial({
+    uniforms: { uSunHeight: { value: 0.55 }, uTime: { value: 0 } },
+    vertexShader: `
+      varying vec3 vWPos;
+      void main() {
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vWPos = wp.xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      varying vec3 vWPos;
+      uniform float uSunHeight;
+      void main() {
+        float h = normalize(vWPos).y;
+        float s = uSunHeight;
+        vec3 night = vec3(0.025, 0.02, 0.06);
+        vec3 day = vec3(0.22, 0.38, 0.72);
+        vec3 dusk = vec3(0.35, 0.18, 0.28);
+        float dayF = smoothstep(-0.15, 0.45, s);
+        float duskF = clamp(1.0 - abs(s - 0.15) * 3.0, 0.0, 1.0);
+        vec3 col = mix(night, day, dayF);
+        col = mix(col, dusk, duskF * 0.55);
+        col = mix(col, vec3(0.06, 0.04, 0.11), 1.0 - smoothstep(-0.1, 0.55, h));
+        float stars = step(0.997, fract(sin(dot(normalize(vWPos).xz * 40.0, vec2(12.9898, 78.233))) * 43758.5453));
+        col += stars * (1.0 - dayF) * 0.65;
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+    side: THREE.BackSide, depthWrite: false
+  });
+  const skyDome = new THREE.Mesh(skyGeo, skyMat);
+  skyDome.renderOrder = -1;
+  scene.add(skyDome);
+
+  const sunMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(3.4, 24, 24),
+    new THREE.MeshBasicMaterial({ color: 0xfff8e0 })
+  );
+  scene.add(sunMesh);
+
+  // Terrain
+  const castleCenter = new THREE.Vector2(48, 48);
+  const castleBaseY = 9.0;
+  function terrainHeight(x, z) {
+    if (Math.abs(x - castleCenter.x) < 8 && Math.abs(z - castleCenter.y) < 7) return castleBaseY;
+    let h = 0;
+    h += Math.sin(x * 0.016 + 0.6) * Math.cos(z * 0.014 - 0.3) * 8.2;
+    h += Math.sin(x * 0.038 + 1.7) * Math.cos(z * 0.035 + 0.7) * 4.0;
+    h += Math.sin(x * 0.075 - 0.4) * Math.sin(z * 0.07 + 1.0) * 1.9;
+    h += Math.cos(x * 0.12 + z * 0.11) * 0.9;
+    h += Math.sin(x * 0.2) * Math.cos(z * 0.17) * 0.5;
+    return h;
+  }
+
+  const terrainGeo = new THREE.PlaneGeometry(200, 200, 160, 160);
+  terrainGeo.rotateX(-Math.PI / 2);
+  const tPos = terrainGeo.attributes.position;
+  const tColors = new Float32Array(tPos.count * 3);
+  for (let i = 0; i < tPos.count; i++) {
+    const x = tPos.getX(i), z = tPos.getZ(i);
+    const h = terrainHeight(x, z);
+    tPos.setY(i, h);
+    const moist = 0.5 + 0.5 * Math.sin(x * 0.03) * Math.cos(z * 0.03);
+    const n2 = 0.5 + 0.5 * Math.sin(x * 0.09 + 1.2) * Math.cos(z * 0.07 - 0.8);
+    const patch = Math.sin(x * 0.21 + z * 0.17) * Math.cos(x * 0.13 - z * 0.19);
+    // Subtle biome zones: castle plateau (cooler stone-tint), open plains (warmer green), outer ring (cooler dusk)
+    const distCastle = Math.hypot(x - castleCenter.x, z - castleCenter.y);
+    const distOrigin = Math.hypot(x, z);
+    let zr = 0, zg = 0, zb = 0;
+    if (distCastle < 22) {
+      // plateau approach — slightly cooler/grey-green
+      const t = 1 - distCastle / 22;
+      zr += 0.04 * t; zg += 0.02 * t; zb += 0.06 * t;
+    } else if (distOrigin > 55) {
+      // outer ring — cooler blue-green
+      const t = Math.min(1, (distOrigin - 55) / 40);
+      zr -= 0.02 * t; zg += 0.01 * t; zb += 0.05 * t;
+    } else {
+      // open plains — warmer grass
+      zg += 0.03; zr += 0.015;
+    }
+    tColors[i * 3]     = 0.08 + h * 0.008 + moist * 0.025 + n2 * 0.04 + patch * 0.03 + zr;
+    tColors[i * 3 + 1] = 0.16 + h * 0.014 + moist * 0.05 + n2 * 0.06 + patch * 0.025 + zg;
+    tColors[i * 3 + 2] = 0.10 + h * 0.006 + moist * 0.015 + n2 * 0.02 + zb;
+  }
+  terrainGeo.setAttribute('color', new THREE.BufferAttribute(tColors, 3));
+  terrainGeo.computeVertexNormals();
+  const terrain = new THREE.Mesh(terrainGeo, new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 0.88, metalness: 0.04
+  }));
+  terrain.receiveShadow = true;
+  terrain.castShadow = true;
+  scene.add(terrain);
+
+  // ========== CLIMBABLE CASTLE (eastern plateau) ==========
+  const castleGroup = new THREE.Group();
+  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x52565f, roughness: 0.88, metalness: 0.06 });
+  const stoneDark = new THREE.MeshStandardMaterial({ color: 0x2e323a, roughness: 0.9 });
+  const stoneEdge = new THREE.MeshStandardMaterial({ color: 0x252830, roughness: 0.92 });
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x4a3520, roughness: 0.9 });
+  const bannerMat = new THREE.MeshStandardMaterial({ color: 0x4a2060, emissive: 0x2a1040, emissiveIntensity: 0.3 });
+  // Base
+  const cBase = new THREE.Mesh(new THREE.BoxGeometry(20, 1.1, 16), stoneMat);
+  cBase.position.set(castleCenter.x, castleBaseY + 0.55, castleCenter.y);
+  cBase.castShadow = true; cBase.receiveShadow = true; castleGroup.add(cBase);
+  // Walls
+  function addWall(w,h,d,x,y,z,mat){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat||stoneMat);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;castleGroup.add(m);}
+  addWall(20,4.5,1.1,castleCenter.x,castleBaseY+3.2,castleCenter.y-7.5,stoneEdge);
+  addWall(20,4.5,1.1,castleCenter.x,castleBaseY+3.2,castleCenter.y+7.5,stoneEdge);
+  addWall(1.1,4.5,14,castleCenter.x+9.5,castleBaseY+3.2,castleCenter.y,stoneEdge);
+  addWall(1.1,4.5,5,castleCenter.x-9.5,castleBaseY+3.2,castleCenter.y-4.5,stoneEdge);
+  addWall(1.1,4.5,5,castleCenter.x-9.5,castleBaseY+3.2,castleCenter.y+4.5,stoneEdge);
+  // Corner towers
+  [[-8.5,-6.5],[8.5,-6.5],[-8.5,6.5],[8.5,6.5]].forEach(tp=>{
+    const tx=castleCenter.x+tp[0], tz=castleCenter.y+tp[1];
+    const tower=new THREE.Mesh(new THREE.CylinderGeometry(2.0,2.3,10,8),stoneDark);
+    tower.position.set(tx,castleBaseY+6,tz);tower.castShadow=true;tower.receiveShadow=true;castleGroup.add(tower);
+    const top=new THREE.Mesh(new THREE.CylinderGeometry(2.4,2.2,1.2,8),stoneMat);
+    top.position.set(tx,castleBaseY+11.5,tz);top.castShadow=true;castleGroup.add(top);
+    const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,3.5,5),woodMat);
+    pole.position.set(tx,castleBaseY+14,tz);castleGroup.add(pole);
+    const flag=new THREE.Mesh(new THREE.PlaneGeometry(1.4,0.9),bannerMat);
+    flag.position.set(tx+0.75,castleBaseY+14.8,tz);flag.rotation.y=Math.PI/2;castleGroup.add(flag);
+  });
+  // Keep + roof
+  const keep=new THREE.Mesh(new THREE.BoxGeometry(6.5,13,6.5),stoneDark);
+  keep.position.set(castleCenter.x,castleBaseY+7.5,castleCenter.y);keep.castShadow=true;keep.receiveShadow=true;castleGroup.add(keep);
+  const keepRoof=new THREE.Mesh(new THREE.ConeGeometry(5,3.5,4),stoneMat);
+  keepRoof.position.set(castleCenter.x,castleBaseY+15.5,castleCenter.y);keepRoof.rotation.y=Math.PI/4;keepRoof.castShadow=true;castleGroup.add(keepRoof);
+  // Ramp from west — visually distinct so players can actually see where to climb
+  const rampMat = new THREE.MeshStandardMaterial({ color: 0x8a7a5a, roughness: 0.75, metalness: 0.08, emissive: 0x3a2a10, emissiveIntensity: 0.12 });
+  const ramp=new THREE.Mesh(new THREE.BoxGeometry(4.8,0.55,13.2),rampMat);
+  ramp.position.set(castleCenter.x-11,castleBaseY+2.2,castleCenter.y);ramp.rotation.z=-0.3;ramp.castShadow=true;ramp.receiveShadow=true;castleGroup.add(ramp);
+  // Side rails so the ramp silhouette is unmistakable from distance (v14: faint emissive for mid-range readability)
+  const railMat = new THREE.MeshStandardMaterial({ color: 0x5a4a32, roughness: 0.85, emissive: 0x2a1a08, emissiveIntensity: 0.18 });
+  [[-2.55,0],[2.55,0]].forEach(([ox]) => {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.55,13.0), railMat);
+    rail.position.set(castleCenter.x-11 + ox*0.15, castleBaseY+2.55, castleCenter.y);
+    rail.rotation.z = -0.3;
+    rail.castShadow = true;
+    castleGroup.add(rail);
+  });
+  // Small step markers along the ramp for extra readability
+  for (let s = 0; s < 5; s++) {
+    const t = s / 4;
+    const step = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.12, 0.35), new THREE.MeshStandardMaterial({ color: 0xa09070, roughness: 0.7 }));
+    const sx = castleCenter.x - 11 + (t * 8.5 - 4.0);
+    const sy = castleBaseY + 0.7 + t * 5.5;
+    step.position.set(sx, sy, castleCenter.y);
+    step.rotation.z = -0.3;
+    step.castShadow = true;
+    castleGroup.add(step);
+  }
+  // Upper walk + perch
+  const walk=new THREE.Mesh(new THREE.BoxGeometry(13,0.55,13),stoneMat);
+  walk.position.set(castleCenter.x,castleBaseY+11.5,castleCenter.y);walk.castShadow=true;walk.receiveShadow=true;castleGroup.add(walk);
+  const perch=new THREE.Mesh(new THREE.CylinderGeometry(3.4,3.5,1.1,8),stoneMat);
+  perch.position.set(castleCenter.x,castleBaseY+17.2,castleCenter.y);perch.castShadow=true;perch.receiveShadow=true;castleGroup.add(perch);
+  scene.add(castleGroup);
+
+  // Castle floor collision (for climbing)
+  // Collision volumes expanded to match solid-looking geometry (base/walls/walk/perch/ramp)
+  const castleFloors = [
+    { x: castleCenter.x, z: castleCenter.y, r: 11.0, y: castleBaseY + 1.15 },
+    { x: castleCenter.x, z: castleCenter.y, r: 7.2, y: castleBaseY + 11.8 },
+    { x: castleCenter.x, z: castleCenter.y, r: 4.0, y: castleBaseY + 17.8 }
+  ];
+  function getCastleY(x, z) {
+    let best = null;
+    for (const f of castleFloors) {
+      const dx = x - f.x, dz = z - f.z;
+      const rr = (f.r + 0.45) * (f.r + 0.45);
+      if (dx * dx + dz * dz < rr) {
+        if (best === null || f.y > best) best = f.y;
+      }
+    }
+    // Ramp: wider acceptance only on west approach (rdx negative / climbing from west)
+    const rdx = x - (castleCenter.x - 11), rdz = z - castleCenter.y;
+    const westApproach = rdx < 2.5;
+    const zTol = westApproach ? 8.2 : 6.2;
+    const xMin = westApproach ? -4.2 : -2.8;
+    const xMax = westApproach ? 9.5 : 8.0;
+    if (Math.abs(rdz) < zTol && rdx > xMin && rdx < xMax) {
+      const t = Math.max(0, Math.min(1, (rdx - xMin) / (xMax - xMin + 0.01)));
+      const rampY = castleBaseY + 0.55 + t * 5.9;
+      if (best === null || rampY > best) best = rampY;
+    }
+    return best;
+  }
+
+  function groundYAt(x, z, currentY) {
+    let gy = terrainHeight(x, z);
+    const cubeY = (typeof getCubeY === 'function') ? getCubeY(x, z, currentY) : null;
+    if (cubeY !== null) gy = Math.max(gy, cubeY);
+    const cy = getCastleY(x, z);
+    if (cy !== null) {
+      // v11: tighter snap windows to kill float/slide (geometry must match feel)
+      if (currentY !== undefined && currentY > cy - 0.55 && currentY < cy + 0.32) {
+        gy = Math.max(gy, cy);
+      } else if (currentY === undefined || currentY <= cy + 0.28) {
+        gy = Math.max(gy, cy);
+      }
+      // Stronger settle when hovering just above a floor
+      if (currentY !== undefined && currentY > cy + 0.02 && currentY < cy + 0.42) {
+        gy = Math.max(gy, cy);
+      }
+    }
+    return gy;
+  }
+
+  // Grass tufts — one InstancedMesh instead of 140 separate meshes. Height variance is applied as a
+  // per-instance Y-scale on a canonical unit-height cone, which is mathematically identical to building
+  // a uniquely-sized geometry per blade (which is what this used to do).
+  const grassGeo = new THREE.ConeGeometry(0.11, 1, 3);
+  const grassMat = new THREE.MeshStandardMaterial({ color: 0x2d6b3a, roughness: 0.85, side: THREE.DoubleSide });
+  const grassInstances = [];
+  for (let i = 0; i < 140; i++) {
+    const x = (Math.random() - 0.5) * 165, z = (Math.random() - 0.5) * 165;
+    if (Math.abs(x - castleCenter.x) < 14 && Math.abs(z - castleCenter.y) < 12) continue;
+    grassInstances.push({
+      x, z, y: terrainHeight(x, z), h: 0.45 + Math.random() * 0.4,
+      ry: Math.random() * Math.PI, rz: (Math.random() - 0.5) * 0.25
+    });
+  }
+  const grass = new THREE.InstancedMesh(grassGeo, grassMat, grassInstances.length);
+  grass.castShadow = true; grass.receiveShadow = true;
+  const grassDummy = new THREE.Object3D();
+  grassInstances.forEach((g, i) => {
+    grassDummy.position.set(g.x, g.y + 0.22, g.z);
+    grassDummy.rotation.set(0, g.ry, g.rz);
+    grassDummy.scale.set(1, g.h, 1);
+    grassDummy.updateMatrix();
+    grass.setMatrixAt(i, grassDummy.matrix);
+  });
+  scene.add(grass);
+
+  // Scattered rocks — 30 meshes collapsed into 2 InstancedMeshes (one per alternating material).
+  const rockGeo = new THREE.DodecahedronGeometry(1, 0);
+  const rockMats = [
+    new THREE.MeshStandardMaterial({ color: 0x4a4e55, roughness: 0.9, flatShading: true }),
+    new THREE.MeshStandardMaterial({ color: 0x3a3e42, roughness: 0.88, flatShading: true })
+  ];
+  const rockBuckets = [[], []];
+  for (let i = 0; i < 30; i++) {
+    const x = (Math.random() - 0.5) * 160, z = (Math.random() - 0.5) * 160;
+    if (Math.abs(x - castleCenter.x) < 15 && Math.abs(z - castleCenter.y) < 13) continue;
+    const y = terrainHeight(x, z), sc = 0.35 + Math.random() * 1.2;
+    rockBuckets[i % 2].push({
+      x, z, y: y + sc * 0.35, sc, rx: Math.random(), ry: Math.random(), rz: Math.random()
+    });
+  }
+  const rockDummy = new THREE.Object3D();
+  rockBuckets.forEach((bucket, matIndex) => {
+    const rockMesh = new THREE.InstancedMesh(rockGeo, rockMats[matIndex], bucket.length);
+    rockMesh.castShadow = true; rockMesh.receiveShadow = true;
+    bucket.forEach((r, i) => {
+      rockDummy.position.set(r.x, r.y, r.z);
+      rockDummy.rotation.set(r.rx, r.ry, r.rz);
+      rockDummy.scale.set(r.sc, r.sc, r.sc);
+      rockDummy.updateMatrix();
+      rockMesh.setMatrixAt(i, rockDummy.matrix);
+    });
+    scene.add(rockMesh);
+  });
+
+  // ===== v36 COLLECTIBLE ROCKS (dogs gather these; player needs 10 to unlock dog capture) =====
+  const collectibleRocks = [];
+  const rockPickupGeo = new THREE.DodecahedronGeometry(0.35, 0);
+  const rockPickupMat = new THREE.MeshStandardMaterial({
+    color: 0x8a9098, roughness: 0.75, metalness: 0.15, emissive: 0x334455, emissiveIntensity: 0.25
+  });
+  function spawnCollectibleRock(x, z) {
+    const mesh = new THREE.Mesh(rockPickupGeo, rockPickupMat.clone());
+    const y = terrainHeight(x, z) + 0.35;
+    mesh.position.set(x, y, z);
+    mesh.rotation.set(Math.random(), Math.random(), Math.random());
+    mesh.userData = { collected: false, baseY: y, phase: Math.random() * 6.28 };
+    mesh.castShadow = true;
+    scene.add(mesh);
+    collectibleRocks.push(mesh);
+    return mesh;
+  }
+  for (let i = 0; i < 36; i++) {
+    const x = (Math.random() - 0.5) * 150;
+    const z = (Math.random() - 0.5) * 150;
+    if (Math.abs(x) < 12 && Math.abs(z) < 12) continue;
+    if (Math.abs(x - castleCenter.x) < 14 && Math.abs(z - castleCenter.y) < 12) continue;
+    spawnCollectibleRock(x, z);
+  }
+
+  // Floating mountains
+  const floatingRocks = [];
+  const mountainDefs = [
+    { p: [28, 21, -23], s: [5.5, 3.8, 4.8] },
+    { p: [-33, 26, 19], s: [6.5, 4.2, 5.5] },
+    { p: [14, 30, 38], s: [4.8, 3.4, 4.5] },
+    { p: [-18, 18, -38], s: [6.0, 3.2, 5.2] },
+    { p: [55, 24, 10], s: [4.5, 3.0, 4.0] },
+    { p: [-50, 29, -15], s: [5.8, 4.0, 5.0] }
+  ];
+  mountainDefs.forEach((def) => {
+    const g = new THREE.Group();
+    g.position.set(def.p[0], def.p[1], def.p[2]);
+    const rockGeo = new THREE.IcosahedronGeometry(2.2, 2);
+    const rp = rockGeo.attributes.position;
+    for (let i = 0; i < rp.count; i++) {
+      const x = rp.getX(i), y = rp.getY(i), z = rp.getZ(i);
+      const n = 1 + (Math.sin(x * 3.2 + y * 2) * Math.cos(z * 3.8) * 0.28);
+      rp.setXYZ(i, x * n, y * n * 0.75, z * n);
+    }
+    rockGeo.computeVertexNormals();
+    const rock = new THREE.Mesh(rockGeo, new THREE.MeshStandardMaterial({
+      color: 0x4a3d32, roughness: 0.7, metalness: 0.18, flatShading: true
+    }));
+    rock.scale.set(def.s[0], def.s[1], def.s[2]);
+    rock.castShadow = true;
+    rock.receiveShadow = true;
+    g.add(rock);
+    const cap = new THREE.Mesh(
+      new THREE.SphereGeometry(1.8, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2.4),
+      new THREE.MeshStandardMaterial({ color: 0x2d5a32, roughness: 0.75 })
+    );
+    cap.position.y = def.s[1] * 0.85;
+    cap.scale.set(def.s[0] * 0.9, def.s[1] * 0.35, def.s[2] * 0.9);
+    g.add(cap);
+    g.userData = { baseY: def.p[1], phase: Math.random() * 6.28, speed: 0.3 + Math.random() * 0.35 };
+    scene.add(g);
+    floatingRocks.push(g);
+  });
+
+  // Trees — 52 trees × 4 parts (trunk + 3 foliage tiers) = 208 meshes collapsed into 4 InstancedMeshes.
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3a2e22, roughness: 0.92 });
+  const foliageMats = [
+    new THREE.MeshStandardMaterial({ color: 0x1f4a35, roughness: 0.78, emissive: 0x0a2018, emissiveIntensity: 0.12 }),
+    new THREE.MeshStandardMaterial({ color: 0x163d2c, roughness: 0.8, emissive: 0x081a12, emissiveIntensity: 0.1 }),
+    new THREE.MeshStandardMaterial({ color: 0x0e3526, roughness: 0.82 })
+  ];
+  const trunkGeo = new THREE.CylinderGeometry(0.2, 0.3, 2.5, 6);
+  const foliageGeos = [
+    new THREE.ConeGeometry(1.45, 2.0, 7),
+    new THREE.ConeGeometry(1.17, 1.78, 7),
+    new THREE.ConeGeometry(0.89, 1.56, 7)
+  ];
+  const treeInstances = [];
+  // v35: denser forest (~70) without flooding the spawn plate or castle
+  const TARGET_TREE_COUNT = 70;
+  for (let i = 0; i < 110 && treeInstances.length < TARGET_TREE_COUNT; i++) {
+    const x = (Math.random() - 0.5) * 175;
+    const z = (Math.random() - 0.5) * 175;
+    if (Math.abs(x) < 14 && Math.abs(z) < 14) continue;
+    if (Math.abs(x - castleCenter.x) < 14 && Math.abs(z - castleCenter.y) < 12) continue;
+    let tooClose = false;
+    for (const t of treeInstances) {
+      if (Math.hypot(t.x - x, t.z - z) < 4.2) { tooClose = true; break; }
+    }
+    if (tooClose) continue;
+    treeInstances.push({ x, z, y: terrainHeight(x, z), sc: 0.7 + Math.random() * 0.75 });
+  }
+  const trunkMesh = new THREE.InstancedMesh(trunkGeo, trunkMat, treeInstances.length);
+  trunkMesh.castShadow = true; trunkMesh.receiveShadow = true;
+  const foliageMeshes = foliageGeos.map((geo, j) => {
+    const m = new THREE.InstancedMesh(geo, foliageMats[j % 3], treeInstances.length);
+    m.castShadow = true;
+    return m;
+  });
+  const treeDummy = new THREE.Object3D();
+  treeInstances.forEach((t, i) => {
+    treeDummy.position.set(t.x, t.y + 1.25 * t.sc, t.z);
+    treeDummy.rotation.set(0, 0, 0);
+    treeDummy.scale.set(t.sc, t.sc, t.sc);
+    treeDummy.updateMatrix();
+    trunkMesh.setMatrixAt(i, treeDummy.matrix);
+    for (let j = 0; j < 3; j++) {
+      treeDummy.position.set(t.x, t.y + (2.7 + j * 1.1) * t.sc, t.z);
+      treeDummy.updateMatrix();
+      foliageMeshes[j].setMatrixAt(i, treeDummy.matrix);
+    }
+  });
+  scene.add(trunkMesh);
+  foliageMeshes.forEach(m => scene.add(m));
+
+  // ===== TREE CHOP STATE (instanced trees remain; we zero-scale chopped ones) =====
+  treeInstances.forEach(t => { t.chopped = false; t.shakeT = 0; });
+  const MAX_CAMPS = 3;
+  const CAMP_WOOD_COST = 5;
+  const camps = [];
+  const scalesDrops = []; // collectible Abyssal Shards on ground
+  const scaleGeo = new THREE.OctahedronGeometry(0.38, 0);
+  const scaleMat = new THREE.MeshStandardMaterial({
+    color: 0xffcc66, emissive: 0xaa4400, emissiveIntensity: 1.2, roughness: 0.3, metalness: 0.45
+  });
+
+  function hideTreeInstance(idx) {
+    const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+    trunkMesh.setMatrixAt(idx, zero);
+    trunkMesh.instanceMatrix.needsUpdate = true;
+    foliageMeshes.forEach(m => {
+      m.setMatrixAt(idx, zero);
+      m.instanceMatrix.needsUpdate = true;
+    });
+  }
+
+  function shakeTreeInstance(idx, amount) {
+    const t = treeInstances[idx];
+    if (!t || t.chopped) return;
+    treeDummy.position.set(t.x + (Math.random() - 0.5) * amount, t.y + 1.25 * t.sc, t.z + (Math.random() - 0.5) * amount);
+    treeDummy.rotation.set((Math.random() - 0.5) * 0.08, 0, (Math.random() - 0.5) * 0.08);
+    treeDummy.scale.set(t.sc, t.sc, t.sc);
+    treeDummy.updateMatrix();
+    trunkMesh.setMatrixAt(idx, treeDummy.matrix);
+    trunkMesh.instanceMatrix.needsUpdate = true;
+    for (let j = 0; j < 3; j++) {
+      treeDummy.position.set(t.x, t.y + (2.7 + j * 1.1) * t.sc, t.z);
+      treeDummy.updateMatrix();
+      foliageMeshes[j].setMatrixAt(idx, treeDummy.matrix);
+      foliageMeshes[j].instanceMatrix.needsUpdate = true;
+    }
+  }
+
+  function restoreTreePose(idx) {
+    const t = treeInstances[idx];
+    if (!t || t.chopped) return;
+    treeDummy.position.set(t.x, t.y + 1.25 * t.sc, t.z);
+    treeDummy.rotation.set(0, 0, 0);
+    treeDummy.scale.set(t.sc, t.sc, t.sc);
+    treeDummy.updateMatrix();
+    trunkMesh.setMatrixAt(idx, treeDummy.matrix);
+    trunkMesh.instanceMatrix.needsUpdate = true;
+    for (let j = 0; j < 3; j++) {
+      treeDummy.position.set(t.x, t.y + (2.7 + j * 1.1) * t.sc, t.z);
+      treeDummy.updateMatrix();
+      foliageMeshes[j].setMatrixAt(idx, treeDummy.matrix);
+      foliageMeshes[j].instanceMatrix.needsUpdate = true;
+    }
+  }
+
+  function findNearestTree(maxDist) {
+    let best = -1, bestD = maxDist;
+    const px = gameState.charPos.x, pz = gameState.charPos.z;
+    for (let i = 0; i < treeInstances.length; i++) {
+      const t = treeInstances[i];
+      if (t.chopped) continue;
+      const d = Math.hypot(t.x - px, t.z - pz);
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    return best;
+  }
+
+  function chopNearestTree() {
+    if (gameState.chopCooldown > 0) return;
+    const idx = findNearestTree(3.2);
+    if (idx < 0) return;
+    const t = treeInstances[idx];
+    gameState.chopCooldown = 0.55;
+    gameState.axeSwing = 0.45;
+    // wood chips
+    const chipPos = new THREE.Vector3(t.x, t.y + 1.4 * t.sc, t.z);
+    for (let k = 0; k < 10; k++) spawnParticle(chipPos, 0xc4a06a, 0.7);
+    // brief shake then fall
+    let shakes = 0;
+    const shakeIv = setInterval(() => {
+      shakeTreeInstance(idx, 0.18);
+      shakes++;
+      if (shakes >= 5) {
+        clearInterval(shakeIv);
+        t.chopped = true;
+        hideTreeInstance(idx);
+        gameState.treesChopped = (gameState.treesChopped || 0) + 1;
+        if (!gameState.beaverUnlocked && gameState.treesChopped >= 10) {
+          gameState.beaverUnlocked = true;
+          showToast('🦫 Beavers will now trust you — find one to capture');
+        }
+        const yieldAmt = 1 + Math.floor(Math.random() * 3); // 1-3
+        gameState.wood += yieldAmt;
+        woodCountEl.textContent = gameState.wood;
+        noteWander('wood', yieldAmt);
+        if (!gameState.firstWood) { gameState.firstWood = true; showToast('Wood gathered — press B to build camp'); }
+        sfx.wood();
+        showToast(`+${yieldAmt} Wood`);
+        for (let k = 0; k < 8; k++) spawnParticle(chipPos, 0x8b6914, 0.85);
+      }
+    }, 60);
+  }
+
+  function placeCamp() {
+    if (gameState.buildCooldown > 0) return;
+    if (gameState.wood < CAMP_WOOD_COST) {
+      showToast('Need 5 Wood to build');
+      return;
+    }
+    if (gameState.campsBuilt >= MAX_CAMPS) {
+      showToast('Camp limit reached (3)');
+      return;
+    }
+    // open ground check — not inside castle plateau
+    const x = gameState.charPos.x, z = gameState.charPos.z;
+    if (Math.abs(x - castleCenter.x) < 10 && Math.abs(z - castleCenter.y) < 9) {
+      showToast('Cannot build on the castle');
+      return;
+    }
+    gameState.wood -= CAMP_WOOD_COST;
+    woodCountEl.textContent = gameState.wood;
+    if (!gameState.firstCamp) { gameState.firstCamp = true; showToast('Camp placed — light in the dark'); }
+    gameState.campsBuilt++;
+    noteWander('camp', 1);
+    gameState.buildCooldown = 0.8;
+
+    const camp = new THREE.Group();
+    const logMat = new THREE.MeshStandardMaterial({ color: 0x4a3520, roughness: 0.9 });
+    // log stack
+    for (let i = 0; i < 3; i++) {
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 1.1, 6), logMat);
+      log.rotation.z = Math.PI / 2;
+      log.position.set(0, 0.12 + i * 0.18, (i - 1) * 0.15);
+      log.castShadow = true;
+      camp.add(log);
+    }
+    // vertical post
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.6, 5), logMat);
+    post.position.set(0.55, 0.8, 0);
+    post.castShadow = true;
+    camp.add(post);
+    // ember / flame
+    const ember = new THREE.Mesh(
+      new THREE.SphereGeometry(0.22, 8, 6),
+      new THREE.MeshStandardMaterial({ color: 0xff6622, emissive: 0xff4400, emissiveIntensity: 1.6, transparent: true, opacity: 0.9 })
+    );
+    ember.position.set(0, 0.45, 0);
+    camp.add(ember);
+    const fireLight = new THREE.PointLight(0xff6622, 1.8, 14);
+    fireLight.position.set(0, 0.7, 0);
+    camp.add(fireLight);
+    camp.userData = { light: fireLight, ember, baseIntensity: 1.8 };
+
+    const gy = terrainHeight(x, z);
+    camp.position.set(x + Math.sin(gameState.yaw) * 1.6, gy, z + Math.cos(gameState.yaw) * 1.6);
+    scene.add(camp);
+    camps.push(camp);
+    addReputation(3);
+    sfx.camp();
+    showToast('Camp established — fires repel Void Walkers');
+  }
+
+  // ===== DIG / PONDS (v11) — G to dig water holes; near another hole → connect pond =====
+  const waterHoles = []; // { x, z, mesh, connected: [] }
+  const waterMat = new THREE.MeshStandardMaterial({
+    color: 0x1a6a9a, emissive: 0x0a3a5a, emissiveIntensity: 0.35,
+    roughness: 0.15, metalness: 0.4, transparent: true, opacity: 0.82
+  });
+  let digCooldown = 0;
+
+  function digHole() {
+    if (digCooldown > 0 || vehicleState.occupied) return;
+    const x = gameState.charPos.x, z = gameState.charPos.z;
+    if (Math.abs(x - castleCenter.x) < 12 && Math.abs(z - castleCenter.y) < 11) {
+      showToast('Cannot dig on the castle');
+      return;
+    }
+    // Prevent stacking on existing hole
+    for (const h of waterHoles) {
+      if (Math.hypot(h.x - x, h.z - z) < 2.2) {
+        showToast('Already a water hole here');
+        return;
+      }
+    }
+    digCooldown = 0.7;
+    const gy = terrainHeight(x, z);
+    const hole = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.8, 0.35, 12), waterMat.clone());
+    hole.position.set(x, gy + 0.08, z);
+    hole.receiveShadow = true;
+    scene.add(hole);
+    const entry = { x, z, mesh: hole, connected: [] };
+    // Connect to nearby holes (within ~2.75) — simple bridge strip
+    for (const other of waterHoles) {
+      const d = Math.hypot(other.x - x, other.z - z);
+      if (d > 0.5 && d < 2.85) {
+        const midX = (x + other.x) / 2, midZ = (z + other.z) / 2;
+        const ang = Math.atan2(other.x - x, other.z - z);
+        const bridge = new THREE.Mesh(
+          new THREE.BoxGeometry(1.5, 0.28, d * 0.95),
+          waterMat.clone()
+        );
+        bridge.position.set(midX, terrainHeight(midX, midZ) + 0.06, midZ);
+        bridge.rotation.y = ang;
+        scene.add(bridge);
+        entry.connected.push(bridge);
+        other.connected.push(bridge);
+        showToast('Pond connected');
+      }
+    }
+    waterHoles.push(entry);
+    noteWander('pond', 1);
+    sfx.dig();
+    if (waterHoles.length === 1) showToast('Water hole dug — dig near another to connect a pond');
+    else if (!entry.connected.length) showToast('Water hole dug');
+    for (let k = 0; k < 6; k++) spawnParticle(new THREE.Vector3(x, gy + 0.4, z), 0x44aacc, 0.5);
+  }
+
+
+
+  // ===== WOOD CUBES (v32) — T to place; 2 wood; stack on grid; walkers bounce, dragons smash =====
+  const woodCubes = [];
+  const cubeGeo = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE);
+  const cubeMat = new THREE.MeshStandardMaterial({
+    color: 0x8a6230, roughness: 0.82, metalness: 0.04,
+    emissive: 0x2a1808, emissiveIntensity: 0.08
+  });
+  let cubeCooldown = 0;
+
+  function cubeCell(x, z) {
+    return { ix: Math.round(x / CUBE_SIZE), iz: Math.round(z / CUBE_SIZE) };
+  }
+  function cubeWorldX(ix) { return ix * CUBE_SIZE; }
+  function cubeWorldZ(iz) { return iz * CUBE_SIZE; }
+
+  function stackTopY(ix, iz) {
+    let top = terrainHeight(cubeWorldX(ix), cubeWorldZ(iz));
+    const cy = getCastleY(cubeWorldX(ix), cubeWorldZ(iz));
+    if (cy !== null) top = Math.max(top, cy);
+    for (const c of woodCubes) {
+      if (!c.userData.alive) continue;
+      if (c.userData.ix === ix && c.userData.iz === iz) {
+        top = Math.max(top, c.position.y + CUBE_SIZE * 0.5);
+      }
+    }
+    return top;
+  }
+
+  function getCubeY(x, z, currentY) {
+    let best = null;
+    for (const c of woodCubes) {
+      if (!c.userData.alive) continue;
+      const dx = x - c.position.x, dz = z - c.position.z;
+      const half = CUBE_SIZE * 0.58;
+      if (Math.abs(dx) < half && Math.abs(dz) < half) {
+        const top = c.position.y + CUBE_SIZE * 0.5;
+        if (best === null || top > best) best = top;
+      }
+    }
+    if (best === null) return null;
+    if (currentY !== undefined && currentY > best + 1.15) return null;
+    return best;
+  }
+
+  function spawnWoodCubeAt(x, z, yOpt) {
+    if (woodCubes.filter(c => c.userData.alive).length >= MAX_CUBES) return null;
+    const { ix, iz } = cubeCell(x, z);
+    const wx = cubeWorldX(ix), wz = cubeWorldZ(iz);
+    const top = (yOpt !== undefined && Number.isFinite(yOpt)) ? yOpt : stackTopY(ix, iz);
+    const mesh = new THREE.Mesh(cubeGeo, cubeMat.clone());
+    mesh.position.set(wx, top + CUBE_SIZE * 0.5, wz);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.userData = { alive: true, ix, iz, hp: 2 };
+    scene.add(mesh);
+    woodCubes.push(mesh);
+    return mesh;
+  }
+
+  function placeWoodCube() {
+    if (cubeCooldown > 0 || vehicleState.occupied) return;
+    if (gameState.wood < CUBE_WOOD_COST) {
+      showToast('Need 2 Wood for a cube');
+      return;
+    }
+    if (woodCubes.filter(c => c.userData.alive).length >= MAX_CUBES) {
+      showToast('Cube limit reached');
+      return;
+    }
+    const fx = gameState.charPos.x + Math.sin(gameState.yaw) * 1.8;
+    const fz = gameState.charPos.z + Math.cos(gameState.yaw) * 1.8;
+    if (Math.abs(fx - castleCenter.x) < 10 && Math.abs(fz - castleCenter.y) < 9) {
+      showToast('Cannot stack cubes on the castle');
+      return;
+    }
+    cubeCooldown = 0.28;
+    gameState.wood -= CUBE_WOOD_COST;
+    woodCountEl.textContent = gameState.wood;
+    noteWander('cube', 1);
+    const mesh = spawnWoodCubeAt(fx, fz);
+    if (mesh) {
+      sfx.wood();
+      showToast('Wood cube stacked');
+      for (let k = 0; k < 5; k++) spawnParticle(mesh.position.clone(), 0xc4a06a, 0.45);
+    }
+  }
+
+  function smashWoodCube(c, color) {
+    if (!c || !c.userData.alive) return;
+    c.userData.alive = false;
+    c.visible = false;
+    scene.remove(c);
+    for (let k = 0; k < 10; k++) spawnParticle(c.position.clone(), color || 0xc4a06a, 0.7);
+  }
+
+  function damageCubesNear(pos, radius) {
+    let hit = 0;
+    for (const c of woodCubes) {
+      if (!c.userData.alive) continue;
+      if (c.position.distanceTo(pos) < radius) {
+        c.userData.hp--;
+        if (c.userData.hp <= 0) smashWoodCube(c, 0xff6622);
+        else {
+          c.material.emissiveIntensity = 0.45;
+          setTimeout(() => { if (c.material) c.material.emissiveIntensity = 0.08; }, 160);
+        }
+        hit++;
+      }
+    }
+    return hit;
+  }
+
+
+  // ===== World-restore helpers (v31) — spawn without costs / toasts =====
+  function spawnCampAt(x, z, facingYaw) {
+    if (camps.length >= MAX_CAMPS) return null;
+    const camp = new THREE.Group();
+    const logMat = new THREE.MeshStandardMaterial({ color: 0x4a3520, roughness: 0.9 });
+    for (let i = 0; i < 3; i++) {
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 1.1, 6), logMat);
+      log.rotation.z = Math.PI / 2;
+      log.position.set(0, 0.12 + i * 0.18, (i - 1) * 0.15);
+      log.castShadow = true;
+      camp.add(log);
+    }
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.6, 5), logMat);
+    post.position.set(0.55, 0.8, 0);
+    post.castShadow = true;
+    camp.add(post);
+    const ember = new THREE.Mesh(
+      new THREE.SphereGeometry(0.22, 8, 6),
+      new THREE.MeshStandardMaterial({ color: 0xff6622, emissive: 0xff4400, emissiveIntensity: 1.6, transparent: true, opacity: 0.9 })
+    );
+    ember.position.set(0, 0.45, 0);
+    camp.add(ember);
+    const fireLight = new THREE.PointLight(0xff6622, 1.8, 14);
+    fireLight.position.set(0, 0.7, 0);
+    camp.add(fireLight);
+    camp.userData = { light: fireLight, ember, baseIntensity: 1.8 };
+    const gy = terrainHeight(x, z);
+    const yaw = facingYaw !== undefined ? facingYaw : 0;
+    camp.position.set(x + Math.sin(yaw) * 1.6, gy, z + Math.cos(yaw) * 1.6);
+    scene.add(camp);
+    camps.push(camp);
+    return camp;
+  }
+
+  function spawnWaterHoleAt(x, z) {
+    for (const h of waterHoles) {
+      if (Math.hypot(h.x - x, h.z - z) < 2.0) return null;
+    }
+    const gy = terrainHeight(x, z);
+    const hole = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.8, 0.35, 12), waterMat.clone());
+    hole.position.set(x, gy + 0.08, z);
+    hole.receiveShadow = true;
+    scene.add(hole);
+    const entry = { x, z, mesh: hole, connected: [] };
+    for (const other of waterHoles) {
+      const d = Math.hypot(other.x - x, other.z - z);
+      if (d > 0.5 && d < 2.85) {
+        const midX = (x + other.x) / 2, midZ = (z + other.z) / 2;
+        const ang = Math.atan2(other.x - x, other.z - z);
+        const bridge = new THREE.Mesh(
+          new THREE.BoxGeometry(1.5, 0.28, d * 0.95),
+          waterMat.clone()
+        );
+        bridge.position.set(midX, terrainHeight(midX, midZ) + 0.06, midZ);
+        bridge.rotation.y = ang;
+        scene.add(bridge);
+        entry.connected.push(bridge);
+        other.connected.push(bridge);
+      }
+    }
+    waterHoles.push(entry);
+    return entry;
+  }
+
+  function clearPlayerWorldEdits() {
+    // Remove camps
+    for (const c of camps) {
+      scene.remove(c);
+      c.traverse(obj => {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+          if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+          else obj.material.dispose();
+        }
+      });
+    }
+    camps.length = 0;
+    // Remove water holes + bridges
+    for (const h of waterHoles) {
+      if (h.mesh) scene.remove(h.mesh);
+      for (const br of (h.connected || [])) {
+        if (br) scene.remove(br);
+      }
+    }
+    waterHoles.length = 0;
+    // Restore all trees (un-chop)
+    for (let i = 0; i < treeInstances.length; i++) {
+      if (treeInstances[i].chopped) {
+        treeInstances[i].chopped = false;
+        restoreTreePose(i);
+      }
+    }
+    // v32 cubes
+    for (const c of woodCubes) {
+      scene.remove(c);
+    }
+    woodCubes.length = 0;
+  }
+
+  function spawnScaleDrops(pos, count) {
+    for (let i = 0; i < count; i++) {
+      const s = new THREE.Mesh(scaleGeo, scaleMat.clone());
+      const ox = (Math.random() - 0.5) * 4;
+      const oz = (Math.random() - 0.5) * 4;
+      const y = terrainHeight(pos.x + ox, pos.z + oz) + 1.2;
+      s.position.set(pos.x + ox, y, pos.z + oz);
+      s.userData = { collected: false, baseY: y, phase: Math.random() * 6.28 };
+      s.castShadow = true;
+      scene.add(s);
+      scalesDrops.push(s);
+    }
+  }
+
+  // Ambient floating orbs / spores
+  const orbGroup = new THREE.Group();
+  const orbGeo = new THREE.SphereGeometry(0.18, 8, 6);
+  for (let i = 0; i < 55; i++) {
+    const hue = 0.45 + Math.random() * 0.25;
+    const col = new THREE.Color().setHSL(hue, 0.7, 0.55);
+    const orb = new THREE.Mesh(orbGeo, new THREE.MeshStandardMaterial({
+      color: col, emissive: col, emissiveIntensity: 0.85, roughness: 0.35, transparent: true, opacity: 0.85
+    }));
+    const x = (Math.random() - 0.5) * 160;
+    const z = (Math.random() - 0.5) * 160;
+    const baseY = terrainHeight(x, z) + 2 + Math.random() * 8;
+    orb.position.set(x, baseY, z);
+    orb.userData = { baseY, phase: Math.random() * 6.28, speed: 0.4 + Math.random() * 0.6, amp: 0.4 + Math.random() * 0.7 };
+    if (i % 4 === 0) {
+      const light = new THREE.PointLight(col, 0.35, 5);
+      light.position.set(0, 0, 0);
+      orb.add(light);
+    }
+    orbGroup.add(orb);
+  }
+  scene.add(orbGroup);
+
+  // Resonance Gems — v15: ~40% biased toward eastern castle approach (mid-slice attractor)
+  const gems = [];
+  const gemGeo = new THREE.OctahedronGeometry(0.48, 0);
+  const gemMat = new THREE.MeshStandardMaterial({
+    color: 0xe8ffff, emissive: 0x40e0ff, emissiveIntensity: 1.4, roughness: 0.25, metalness: 0.35
+  });
+  for (let i = 0; i < GEM_COUNT; i++) {
+    let x, z;
+    if (i < 5) {
+      // v33: near-spawn cluster so the first minute is not empty
+      const ang = Math.random() * Math.PI * 2;
+      const dist = 8 + Math.random() * 14;
+      x = Math.cos(ang) * dist;
+      z = Math.sin(ang) * dist;
+    } else if (i < Math.floor(GEM_COUNT * 0.45)) {
+      // Bias cluster: approach corridor west of castle plateau
+      const ang = (Math.random() - 0.5) * 1.4;
+      const dist = 18 + Math.random() * 28;
+      x = castleCenter.x - dist * Math.cos(ang * 0.35) + (Math.random() - 0.5) * 10;
+      z = castleCenter.y + (Math.random() - 0.5) * 22;
+    } else {
+      x = (Math.random() - 0.5) * 160;
+      z = (Math.random() - 0.5) * 160;
+    }
+    const y = terrainHeight(x, z) + 1.6 + Math.random() * 0.8;
+    const gem = new THREE.Mesh(gemGeo, gemMat);
+    gem.position.set(x, y, z);
+    gem.userData = { collected: false, baseY: y, phase: Math.random() * 6.28 };
+    gem.castShadow = true;
+    scene.add(gem);
+    gems.push(gem);
+  }
+
+  // ========== BLOCKY STEVE-LIKE CHARACTER ==========
+  const character = new THREE.Group();
+  const skinMat = new THREE.MeshStandardMaterial({ color: 0xc68642, roughness: 0.75 });
+  const shirtMat = new THREE.MeshStandardMaterial({ color: 0x3a7ca5, roughness: 0.7, metalness: 0.05 });
+  const pantsMat = new THREE.MeshStandardMaterial({ color: 0x2c3e6b, roughness: 0.8 });
+  const bootMat  = new THREE.MeshStandardMaterial({ color: 0x3d2914, roughness: 0.85 });
+
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.72, 0.72), skinMat);
+  head.position.y = 1.72;
+  head.castShadow = true;
+  character.add(head);
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x1a1a1a });
+  const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.08), eyeMat);
+  eyeL.position.set(-0.16, 1.78, 0.36);
+  character.add(eyeL);
+  const eyeR = eyeL.clone();
+  eyeR.position.x = 0.16;
+  character.add(eyeR);
+
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.95, 0.42), shirtMat);
+  torso.position.y = 1.05;
+  torso.castShadow = true;
+  character.add(torso);
+
+  function makeArm(side) {
+    const pivot = new THREE.Group();
+    pivot.position.set(side * 0.48, 1.42, 0);
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.85, 0.28), shirtMat);
+    arm.position.y = -0.4;
+    arm.castShadow = true;
+    pivot.add(arm);
+    const hand = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.26, 0.26), skinMat);
+    hand.position.y = -0.85;
+    pivot.add(hand);
+    character.add(pivot);
+    return pivot;
+  }
+  const leftArmPivot  = makeArm(-1);
+  const rightArmPivot = makeArm(1);
+
+  function makeLeg(side) {
+    const pivot = new THREE.Group();
+    pivot.position.set(side * 0.2, 0.58, 0);
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.7, 0.32), pantsMat);
+    leg.position.y = -0.32;
+    leg.castShadow = true;
+    pivot.add(leg);
+    const boot = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.22, 0.36), bootMat);
+    boot.position.y = -0.72;
+    pivot.add(boot);
+    character.add(pivot);
+    return pivot;
+  }
+  const leftLegPivot  = makeLeg(-1);
+  const rightLegPivot = makeLeg(1);
+
+  character.userData = { leftArmPivot, rightArmPivot, leftLegPivot, rightLegPivot, armored: false };
+  character.position.set(0, terrainHeight(0, 0), 0);
+  scene.add(character);
+
+  // v11: post-lap visual upgrade (helmet + armor) — reward for finishing the vertical slice
+  function applyArmorUpgrade() {
+    if (character.userData.armored) return;
+    character.userData.armored = true;
+    const armorMat = new THREE.MeshStandardMaterial({ color: 0x6a7a9a, roughness: 0.35, metalness: 0.65, emissive: 0x1a2a40, emissiveIntensity: 0.15 });
+    const helmMat = new THREE.MeshStandardMaterial({ color: 0x4a5a70, roughness: 0.3, metalness: 0.7, emissive: 0x102030, emissiveIntensity: 0.2 });
+    // Helmet
+    const helm = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.42, 0.82), helmMat);
+    helm.position.y = 2.05;
+    helm.castShadow = true;
+    character.add(helm);
+    const visor = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.12, 0.15), new THREE.MeshStandardMaterial({ color: 0x22ccff, emissive: 0x1188aa, emissiveIntensity: 0.6, metalness: 0.8 }));
+    visor.position.set(0, 1.95, 0.38);
+    character.add(visor);
+    // Chest plate
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(0.88, 0.7, 0.5), armorMat);
+    plate.position.y = 1.15;
+    plate.castShadow = true;
+    character.add(plate);
+    // Shoulder pads
+    for (const s of [-1, 1]) {
+      const pad = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.22, 0.35), armorMat);
+      pad.position.set(s * 0.55, 1.48, 0);
+      pad.castShadow = true;
+      character.add(pad);
+    }
+    sfx.armor();
+    showToast('⚔ Armor earned — vertical slice complete');
+  }
+
+  // ========== VOID WALKERS ==========
+
+  // ==================== COINS (fuel source) ====================
+  const COIN_COUNT = 45;
+  const coins = [];
+  const coinGeo = new THREE.OctahedronGeometry(0.32, 0);
+  const coinMat = new THREE.MeshStandardMaterial({
+    color: 0xffd24a, emissive: 0xaa7700, emissiveIntensity: 0.85,
+    metalness: 0.7, roughness: 0.25
+  });
+  for (let i = 0; i < COIN_COUNT; i++) {
+    let x, z, tries = 0;
+    if (i < 10) {
+      // v33: first coins within easy walk so fuel goal is reachable early
+      const ang = Math.random() * Math.PI * 2;
+      const dist = 10 + Math.random() * 18;
+      x = Math.cos(ang) * dist;
+      z = Math.sin(ang) * dist;
+    } else {
+      do {
+        x = (Math.random() - 0.5) * 150;
+        z = (Math.random() - 0.5) * 150;
+        tries++;
+      } while (tries < 40 && (
+        (Math.abs(x) < 12 && Math.abs(z) < 12) ||
+        (Math.abs(x - castleCenter.x) < 16 && Math.abs(z - castleCenter.y) < 14)
+      ));
+    }
+    const mesh = new THREE.Mesh(coinGeo, coinMat);
+    const y = terrainHeight(x, z) + 0.9;
+    mesh.position.set(x, y, z);
+    mesh.castShadow = true;
+    mesh.userData = { collected: false, baseY: y, phase: Math.random() * Math.PI * 2 };
+    scene.add(mesh);
+    coins.push(mesh);
+  }
+
+  // ==================== DRIVEABLE CAR ====================
+  const car = new THREE.Group();
+  const carBodyMat = new THREE.MeshStandardMaterial({ color: 0x2a6a9a, roughness: 0.45, metalness: 0.35 });
+  const carDarkMat = new THREE.MeshStandardMaterial({ color: 0x1a2a38, roughness: 0.5, metalness: 0.4 });
+  const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111114, roughness: 0.7 });
+  // chassis
+  const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.55, 4.2), carBodyMat);
+  chassis.position.y = 0.55; chassis.castShadow = true; chassis.receiveShadow = true; car.add(chassis);
+  // cabin
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.7, 2.0), carDarkMat);
+  cabin.position.set(0, 1.15, -0.3); cabin.castShadow = true; car.add(cabin);
+  // windshield hint
+  const glass = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.45, 0.08), new THREE.MeshStandardMaterial({ color: 0x88ccff, transparent: true, opacity: 0.45, metalness: 0.8 }));
+  glass.position.set(0, 1.2, 0.72); car.add(glass);
+  // wheels
+  const wheelGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.28, 10);
+  const carWheels = [];
+  [[-1.1, 0.42, 1.35], [1.1, 0.42, 1.35], [-1.1, 0.42, -1.35], [1.1, 0.42, -1.35]].forEach(p => {
+    const w = new THREE.Mesh(wheelGeo, wheelMat);
+    w.rotation.z = Math.PI / 2;
+    w.position.set(p[0], p[1], p[2]);
+    w.castShadow = true;
+    car.add(w);
+    carWheels.push(w);
+  });
+  // headlight meshes + glow
+  const hlMeshMat = new THREE.MeshStandardMaterial({ color: 0xfff0c0, emissive: 0xffe080, emissiveIntensity: 0.9, roughness: 0.3 });
+  [[-0.55, 0.55, 2.05], [0.55, 0.55, 2.05]].forEach(p => {
+    const hlMesh = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.16, 0.12), hlMeshMat);
+    hlMesh.position.set(p[0], p[1], p[2]);
+    car.add(hlMesh);
+  });
+  // underglow strip
+  const underglow = new THREE.Mesh(
+    new THREE.BoxGeometry(2.0, 0.06, 3.6),
+    new THREE.MeshStandardMaterial({ color: 0x2288ff, emissive: 0x1166cc, emissiveIntensity: 0.7, transparent: true, opacity: 0.55 })
+  );
+  underglow.position.y = 0.12;
+  car.add(underglow);
+  const hl = new THREE.PointLight(0xffe8a0, 0.0, 18, 2);
+  hl.position.set(0, 0.8, 2.2); car.add(hl);
+  car.position.set(8, terrainHeight(8, 6), 6);
+  car.rotation.y = Math.PI;
+  scene.add(car);
+
+  const vehicleState = {
+    occupied: false,
+    speed: 0,
+    maxSpeed: 22,
+    boostMult: 1.55,
+    steer: 0,
+    yaw: Math.PI,
+    fuelDrainIdle: 0.0,
+    fuelDrainMove: 3.2,
+    fuelDrainBoost: 7.5,
+    dustTimer: 0
+  };
+
+  function enterVehicle() {
+    if (vehicleState.occupied) return;
+    if (gameState.fuel <= 0) { showToast('No fuel — collect coins'); return; }
+    vehicleState.occupied = true;
+    character.visible = false;
+    // companions stay visible while driving
+    vehicleState.yaw = gameState.yaw;
+    vehicleState.speed = 0;
+    hl.intensity = 1.4;
+    sfx.vehicle();
+    showToast('Driving — V to exit · camera aims car');
+  }
+  function exitVehicle(forced) {
+    if (!vehicleState.occupied) return;
+    vehicleState.occupied = false;
+    character.visible = true;
+    // companions remain in world
+    gameState.charPos.set(car.position.x, car.position.y, car.position.z);
+    gameState.yaw = vehicleState.yaw;
+    gameState.velocityY = 0;
+    hl.intensity = 0;
+    vehicleState.speed = 0;
+    if (forced) showToast('Out of fuel — exited');
+    else showToast('Exited vehicle');
+  }
+  function tryToggleVehicle() {
+    if (vehicleState.occupied) { exitVehicle(false); return; }
+    const dist = gameState.charPos.distanceTo(car.position);
+    if (dist < 5.5) enterVehicle();
+    else showToast('Move closer to the car');
+  }
+
+  const voidWalkers = [];
+  const walkerBodyMat = new THREE.MeshStandardMaterial({
+    color: 0x141018, roughness: 0.45, metalness: 0.25,
+    emissive: 0x2a1040, emissiveIntensity: 0.55
+  });
+  const walkerEyeMat = new THREE.MeshStandardMaterial({
+    color: 0xff66ff, emissive: 0xff44ee, emissiveIntensity: 2.4,
+    roughness: 0.2, metalness: 0.1
+  });
+
+  for (let i = 0; i < VOID_WALKER_COUNT; i++) {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.7, 0.38), walkerBodyMat);
+    body.position.y = 1.45;
+    body.castShadow = true;
+    g.add(body);
+    const wHead = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.55, 0.42), walkerBodyMat);
+    wHead.position.y = 2.95;
+    wHead.castShadow = true;
+    g.add(wHead);
+    for (const s of [-1, 1]) {
+      const eye = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.14, 0.1), walkerEyeMat);
+      eye.position.set(s * 0.14, 3.0, 0.24);
+      g.add(eye);
+    }
+    for (const s of [-1, 1]) {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.9, 0.16), walkerBodyMat);
+      arm.position.set(s * 0.42, 1.2, 0);
+      arm.castShadow = true;
+      g.add(arm);
+    }
+    const x = (Math.random() - 0.5) * 140;
+    const z = (Math.random() - 0.5) * 140;
+    g.position.set(x, terrainHeight(x, z), z);
+    g.userData = {
+      health: 4, alive: true, velocity: new THREE.Vector3(),
+      changeTimer: 1 + Math.random() * 3, phase: Math.random() * 6.28,
+      wanderAngle: Math.random() * Math.PI * 2
+    };
+    scene.add(g);
+    voidWalkers.push(g);
+  }
+
+  function getVoidWalkerToughness() {
+    // v15: escalates with play time + pearls + post-slice
+    const t = gameState.playTime || 0;
+    let tier = 0;
+    if (t > 90 || gameState.pearls >= 2) tier = 1;
+    if (t > 180 || gameState.pearls >= REQUIRED_PEARLS) tier = 2;
+    if (gameState.wyrmDefeated || t > 300) tier = 3;
+    if (gameState.postBossLapDone) tier = Math.max(tier, 3);
+    return tier;
+  }
+
+  function createVoidWalker(x, z, forceTier) {
+    const tier = forceTier !== undefined ? forceTier : getVoidWalkerToughness();
+    const hp = 4 + tier; // 4 → 7
+    const scale = 1 + tier * 0.08;
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.7, 0.38), walkerBodyMat.clone());
+    body.position.y = 1.45; body.castShadow = true; g.add(body);
+    const wHead = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.55, 0.42), walkerBodyMat.clone());
+    wHead.position.y = 2.95; wHead.castShadow = true; g.add(wHead);
+    for (const s of [-1, 1]) {
+      const eye = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.14, 0.1), walkerEyeMat);
+      eye.position.set(s * 0.14, 3.0, 0.24); g.add(eye);
+    }
+    for (const s of [-1, 1]) {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.9, 0.16), walkerBodyMat.clone());
+      arm.position.set(s * 0.42, 1.2, 0); arm.castShadow = true; g.add(arm);
+    }
+    // Tougher walkers get a faint purple halo so the player can read the threat
+    if (tier >= 2) {
+      const halo = new THREE.Mesh(
+        new THREE.SphereGeometry(0.9, 8, 6),
+        new THREE.MeshBasicMaterial({ color: 0x8822aa, transparent: true, opacity: 0.18 })
+      );
+      halo.position.y = 1.6;
+      g.add(halo);
+    }
+    g.position.set(x, terrainHeight(x, z), z);
+    g.scale.setScalar(scale);
+    g.userData = {
+      health: hp, maxHealth: hp, tier, alive: true, velocity: new THREE.Vector3(),
+      changeTimer: 1 + Math.random() * 3, phase: Math.random() * 6.28,
+      wanderAngle: Math.random() * Math.PI * 2,
+      lungeTimer: 0, lungeCooldown: 0, aggroFlash: 0
+    };
+    scene.add(g);
+    voidWalkers.push(g);
+    return g;
+  }
+
+  function countAliveWalkers() {
+    let n = 0;
+    for (const w of voidWalkers) if (w.userData.alive) n++;
+    return n;
+  }
+
+  function respawnVoidWalker() {
+    if (countAliveWalkers() >= VOID_WALKER_MAX) return;
+    let x, z, tries = 0;
+    const px = gameState.charPos.x, pz = gameState.charPos.z;
+    do {
+      x = px + (Math.random() - 0.5) * 90;
+      z = pz + (Math.random() - 0.5) * 90;
+      tries++;
+    } while (tries < 20 && (Math.hypot(x - px, z - pz) < 22 || (Math.abs(x - castleCenter.x) < 14 && Math.abs(z - castleCenter.y) < 12)));
+    createVoidWalker(x, z);
+  }
+
+  // v15: periodic reinforcement wave — extra walkers as the session lengthens
+  function tryEscalationSpawn() {
+    if (countAliveWalkers() >= VOID_WALKER_MAX) return;
+    const t = gameState.playTime || 0;
+    // Every ~45s after 60s of play, chance to inject 1–2 tougher walkers
+    if (t < 60) return;
+    const interval = gameState.postBossLapDone ? 28 : 45;
+    if (gameState.escalationTimer === undefined) gameState.escalationTimer = interval;
+    // timer decremented in animate
+    if (gameState.escalationTimer > 0) return;
+    gameState.escalationTimer = interval;
+    const extra = 1 + (getVoidWalkerToughness() >= 2 ? 1 : 0);
+    for (let i = 0; i < extra; i++) {
+      if (countAliveWalkers() >= VOID_WALKER_MAX) break;
+      respawnVoidWalker();
+    }
+    if (extra > 0 && getVoidWalkerToughness() >= 2) {
+      sfx.reinforce();
+      showToast('Void Walkers reinforce…');
+    }
+  }
+
+  // ===== v35 COMPANIONS: wild animals + capture + recruit leaders =====
+  // Types: wolf, cat, beaver, cow, chicken, horse, dog
+  // First captured of each type becomes a recruiter that can gather more of its kind.
+  // Beaver requires 10 trees chopped before capture; then auto-chops for wood.
+  // Chicken recruiters can climb the castle and gather there.
+  const companions = []; // captured
+  const wildAnimals = []; // free
+  const COMPANION_SPECIES = ['wolf', 'cat', 'beaver', 'cow', 'chicken', 'horse', 'dog'];
+  const speciesLeader = {}; // type -> first captured mesh
+  let dog = null; // pearl milestone dog (also registers as companion)
+  let captureHintT = 0;
+  let treeRegenTimer = 55;
+  let nearestWildForHint = null;
+
+  function makeAnimalMesh(type) {
+    const g = new THREE.Group();
+    g.userData.type = type;
+    g.userData.captured = false;
+    g.userData.leader = false;
+    g.userData.recruitTimer = 1 + Math.random() * 2;
+    g.userData.workTimer = 2 + Math.random() * 2;
+    g.userData.wanderT = Math.random() * 6;
+    g.userData.wanderDir = Math.random() * Math.PI * 2;
+    g.userData.phase = Math.random() * 6.28;
+    if (type === 'wolf' || type === 'dog') {
+      const fur = new THREE.MeshStandardMaterial({ color: type === 'wolf' ? 0x6a6a72 : 0xc4a06a, roughness: 0.85 });
+      const dark = new THREE.MeshStandardMaterial({ color: type === 'wolf' ? 0x2a2a30 : 0x5a4030, roughness: 0.88 });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.4, 0.95), fur);
+      body.position.y = 0.45; body.castShadow = true; g.add(body);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.35, 0.4), fur);
+      head.position.set(0, 0.55, 0.55); head.castShadow = true; g.add(head);
+      const snout = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.16, 0.22), dark);
+      snout.position.set(0, 0.48, 0.78); g.add(snout);
+      const earL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.2, 0.08), dark);
+      earL.position.set(-0.14, 0.74, 0.5); g.add(earL);
+      const earR = earL.clone(); earR.position.x = 0.14; g.add(earR);
+      const tail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.4), fur);
+      tail.position.set(0, 0.5, -0.55); g.add(tail);
+      [[-0.18, 0.15, 0.28], [0.18, 0.15, 0.28], [-0.18, 0.15, -0.28], [0.18, 0.15, -0.28]].forEach(p => {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.32, 0.12), dark);
+        leg.position.set(p[0], p[1], p[2]); leg.castShadow = true; g.add(leg);
+      });
+    } else if (type === 'cat') {
+      const fur = new THREE.MeshStandardMaterial({ color: 0xd4a060, roughness: 0.8 });
+      const dark = new THREE.MeshStandardMaterial({ color: 0x3a2818, roughness: 0.85 });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.28, 0.62), fur);
+      body.position.y = 0.32; body.castShadow = true; g.add(body);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.28, 0.28), fur);
+      head.position.set(0, 0.42, 0.4); g.add(head);
+      const earL = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.16, 4), fur);
+      earL.position.set(-0.1, 0.58, 0.38); g.add(earL);
+      const earR = earL.clone(); earR.position.x = 0.1; g.add(earR);
+      const tail = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.45), fur);
+      tail.position.set(0, 0.4, -0.4); tail.rotation.x = -0.4; g.add(tail);
+      [[-0.12, 0.1, 0.18], [0.12, 0.1, 0.18], [-0.12, 0.1, -0.18], [0.12, 0.1, -0.18]].forEach(p => {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.08), dark);
+        leg.position.set(p[0], p[1], p[2]); g.add(leg);
+      });
+    } else if (type === 'beaver') {
+      const fur = new THREE.MeshStandardMaterial({ color: 0x8a5a32, roughness: 0.9 });
+      const dark = new THREE.MeshStandardMaterial({ color: 0x4a3018, roughness: 0.92 });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.35, 0.7), fur);
+      body.position.y = 0.35; body.castShadow = true; g.add(body);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.28, 0.3), fur);
+      head.position.set(0, 0.4, 0.42); g.add(head);
+      const tail = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.06, 0.4), dark);
+      tail.position.set(0, 0.22, -0.5); g.add(tail);
+      [[-0.14, 0.12, 0.2], [0.14, 0.12, 0.2], [-0.14, 0.12, -0.15], [0.14, 0.12, -0.15]].forEach(p => {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.24, 0.1), dark);
+        leg.position.set(p[0], p[1], p[2]); g.add(leg);
+      });
+    } else if (type === 'cow') {
+      const hide = new THREE.MeshStandardMaterial({ color: 0xe8e0d0, roughness: 0.9 });
+      const dark = new THREE.MeshStandardMaterial({ color: 0x2a2a28, roughness: 0.9 });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.55, 1.15), hide);
+      body.position.y = 0.7; body.castShadow = true; g.add(body);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.32, 0.4), hide);
+      head.position.set(0, 0.85, 0.7); g.add(head);
+      const spot = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.25, 0.2), dark);
+      spot.position.set(0.15, 0.75, 0.1); g.add(spot);
+      [[-0.22, 0.28, 0.35], [0.22, 0.28, 0.35], [-0.22, 0.28, -0.35], [0.22, 0.28, -0.35]].forEach(p => {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.55, 0.14), dark);
+        leg.position.set(p[0], p[1], p[2]); g.add(leg);
+      });
+    } else if (type === 'chicken') {
+      const bodyM = new THREE.MeshStandardMaterial({ color: 0xf0e8d0, roughness: 0.85 });
+      const comb = new THREE.MeshStandardMaterial({ color: 0xc03030, roughness: 0.7 });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.28, 0.35), bodyM);
+      body.position.y = 0.28; body.castShadow = true; g.add(body);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.18), bodyM);
+      head.position.set(0, 0.42, 0.2); g.add(head);
+      const crest = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 0.1), comb);
+      crest.position.set(0, 0.54, 0.2); g.add(crest);
+      const beak = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.1), new THREE.MeshStandardMaterial({ color: 0xe0a020 }));
+      beak.position.set(0, 0.4, 0.32); g.add(beak);
+      [[-0.08, 0.08, 0.05], [0.08, 0.08, 0.05]].forEach(p => {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.16, 0.05), new THREE.MeshStandardMaterial({ color: 0xe0a020 }));
+        leg.position.set(p[0], p[1], p[2]); g.add(leg);
+      });
+    } else if (type === 'horse') {
+      const hide = new THREE.MeshStandardMaterial({ color: 0x8a6038, roughness: 0.85 });
+      const dark = new THREE.MeshStandardMaterial({ color: 0x3a2818, roughness: 0.9 });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 1.2), hide);
+      body.position.y = 0.85; body.castShadow = true; g.add(body);
+      const neck = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.45, 0.28), hide);
+      neck.position.set(0, 1.2, 0.45); g.add(neck);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.28, 0.45), hide);
+      head.position.set(0, 1.35, 0.7); g.add(head);
+      [[-0.18, 0.35, 0.35], [0.18, 0.35, 0.35], [-0.18, 0.35, -0.35], [0.18, 0.35, -0.35]].forEach(p => {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.7, 0.12), dark);
+        leg.position.set(p[0], p[1], p[2]); g.add(leg);
+      });
+      const tail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.4), dark);
+      tail.position.set(0, 0.9, -0.7); g.add(tail);
+    }
+    return g;
+  }
+
+  function randomAnimalPos() {
+    for (let tries = 0; tries < 40; tries++) {
+      const x = (Math.random() - 0.5) * 150;
+      const z = (Math.random() - 0.5) * 150;
+      if (Math.abs(x) < 18 && Math.abs(z) < 18) continue;
+      if (Math.abs(x - castleCenter.x) < 16 && Math.abs(z - castleCenter.y) < 14) continue;
+      return { x, z };
+    }
+    return { x: 30 + Math.random() * 20, z: -20 - Math.random() * 20 };
+  }
+
+  function spawnWild(type, x, z) {
+    const mesh = makeAnimalMesh(type);
+    mesh.userData.captured = false;
+    mesh.position.set(x, terrainHeight(x, z), z);
+    scene.add(mesh);
+    wildAnimals.push(mesh);
+    return mesh;
+  }
+
+  function initWildAnimals() {
+    const plan = [
+      ['wolf', 3], ['cat', 3], ['beaver', 2], ['dog', 3],
+      ['cow', 3], ['chicken', 4], ['horse', 3]
+    ];
+    for (const [type, n] of plan) {
+      for (let i = 0; i < n; i++) {
+        const p = randomAnimalPos();
+        spawnWild(type, p.x, p.z);
+      }
+    }
+  }
+  initWildAnimals();
+
+  function captureAnimal(mesh) {
+    if (!mesh || mesh.userData.captured) return false;
+    const type = mesh.userData.type;
+    if (type === 'beaver' && !gameState.beaverUnlocked) {
+      showToast('🦫 Chop 10 trees first (' + (gameState.treesChopped || 0) + '/10)');
+      return false;
+    }
+    if (type === 'dog' && !gameState.dogUnlocked) {
+      showToast('🐕 Collect 10 rocks first (' + (gameState.rocks || 0) + '/10)');
+      return false;
+    }
+    mesh.userData.captured = true;
+    const idx = wildAnimals.indexOf(mesh);
+    if (idx >= 0) wildAnimals.splice(idx, 1);
+    companions.push(mesh);
+    if (!speciesLeader[type]) {
+      speciesLeader[type] = mesh;
+      mesh.userData.leader = true;
+      showToast('★ ' + type.toUpperCase() + ' leader — will recruit others');
+    } else {
+      showToast('Captured ' + type);
+    }
+    addReputation(3);
+    sfx.collect();
+    return true;
+  }
+
+  function tryCraftSword() {
+    if (gameState.hasSword) { showToast('⚔️ Sword already crafted'); return; }
+    if ((gameState.rocks || 0) < 20 || (gameState.wood || 0) < 20) {
+      showToast('Need 20 rocks + 20 wood (have ' + (gameState.rocks|0) + 'R / ' + (gameState.wood|0) + 'W)');
+      return;
+    }
+    gameState.rocks -= 20;
+    gameState.wood -= 20;
+    rockCountEl.textContent = gameState.rocks;
+    woodCountEl.textContent = gameState.wood;
+    gameState.hasSword = true;
+    if (swordPanel) swordPanel.style.display = 'flex';
+    sfx.armor();
+    showToast('⚔️ Aether sword forged — beams hit harder');
+    addReputation(5);
+  }
+
+  function tryCaptureNearest() {
+    if (vehicleState.occupied) return;
+    let best = null, bestD = 3.2;
+    for (const w of wildAnimals) {
+      const d = w.position.distanceTo(gameState.charPos);
+      if (d < bestD) { bestD = d; best = w; }
+    }
+    if (!best) { showToast('No animal nearby — approach a wild one'); return; }
+    captureAnimal(best);
+  }
+
+  function recruitWild(leader, target) {
+    if (!target || target.userData.captured) return;
+    if (target.userData.type !== leader.userData.type) return;
+    captureAnimal(target);
+    showToast(leader.userData.type + ' recruited a friend');
+  }
+
+  function beaverWork(beaver, allowChop) {
+    let best = -1, bestD = 12;
+    for (let i = 0; i < treeInstances.length; i++) {
+      const t = treeInstances[i];
+      if (t.chopped) continue;
+      const d = Math.hypot(t.x - beaver.position.x, t.z - beaver.position.z);
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    if (best < 0) return;
+    const t = treeInstances[best];
+    const d = Math.hypot(t.x - beaver.position.x, t.z - beaver.position.z) || 1;
+    if (d > 2.2) {
+      const step = Math.min(d - 2.0, 0.18);
+      beaver.position.x += ((t.x - beaver.position.x) / d) * step;
+      beaver.position.z += ((t.z - beaver.position.z) / d) * step;
+      beaver.position.y = terrainHeight(beaver.position.x, beaver.position.z);
+      beaver.rotation.y = Math.atan2(t.x - beaver.position.x, t.z - beaver.position.z);
+      return;
+    }
+    if (!allowChop) return;
+    t.chopped = true;
+    hideTreeInstance(best);
+    gameState.treesChopped = (gameState.treesChopped || 0) + 1;
+    const yieldAmt = 1 + Math.floor(Math.random() * 2);
+    gameState.wood += yieldAmt;
+    woodCountEl.textContent = gameState.wood;
+    noteWander('wood', yieldAmt);
+    sfx.wood();
+    showToast('🦫 Beaver +' + yieldAmt + ' Wood');
+    for (let k = 0; k < 5; k++) spawnParticle(new THREE.Vector3(t.x, t.y + 1, t.z), 0x8b6914, 0.6);
+  }
+
+  function dogRockWork(dog, allowPickup) {
+    let best = null, bestD = 14;
+    for (const r of collectibleRocks) {
+      if (r.userData.collected) continue;
+      const d = dog.position.distanceTo(r.position);
+      if (d < bestD) { bestD = d; best = r; }
+    }
+    if (!best) return;
+    const d = dog.position.distanceTo(best.position) || 1;
+    if (d > 1.6) {
+      const step = Math.min(d - 1.4, 0.2);
+      dog.position.x += ((best.position.x - dog.position.x) / d) * step;
+      dog.position.z += ((best.position.z - dog.position.z) / d) * step;
+      dog.position.y = terrainHeight(dog.position.x, dog.position.z);
+      dog.rotation.y = Math.atan2(best.position.x - dog.position.x, best.position.z - dog.position.z);
+      return;
+    }
+    if (!allowPickup) return;
+    best.userData.collected = true;
+    best.visible = false;
+    gameState.rocks = (gameState.rocks || 0) + 1;
+    rockCountEl.textContent = gameState.rocks;
+    if (!gameState.dogUnlocked && gameState.rocks >= 10) {
+      gameState.dogUnlocked = true;
+      showToast('🐕 Dogs will trust you — find one to capture');
+    }
+    sfx.collect();
+    showToast('🐕 Dog +1 Rock (' + gameState.rocks + ')');
+    for (let k = 0; k < 4; k++) spawnParticle(best.position, 0x99aacc, 0.45);
+  }
+
+  function horseShieldActive() {
+    for (const c of companions) {
+      if (c.userData.captured && c.userData.type === 'horse') return true;
+    }
+    return false;
+  }
+
+  function chickenAssaultActive() {
+    return companions.filter(c => c.userData.captured).length >= 10;
+  }
+
+  function updateCompanions(dt) {
+    // Capture hint
+    nearestWildForHint = null;
+    let hintD = 3.5;
+    for (const w of wildAnimals) {
+      const d = w.position.distanceTo(gameState.charPos);
+      if (d < hintD) { hintD = d; nearestWildForHint = w; }
+    }
+    if (nearestWildForHint && captureHintT <= 0) {
+      captureHintT = 2.5;
+      const t = nearestWildForHint.userData.type;
+      if (t === 'beaver' && !gameState.beaverUnlocked)
+        showToast('🦫 Beaver nearby — need 10 trees (' + (gameState.treesChopped || 0) + '/10)');
+      else if (t === 'dog' && !gameState.dogUnlocked)
+        showToast('🐕 Dog nearby — need 10 rocks (' + (gameState.rocks || 0) + '/10)');
+      else
+        showToast('Press R to capture ' + t);
+    }
+    if (captureHintT > 0) captureHintT -= dt;
+
+    // Wild wander
+    for (const w of wildAnimals) {
+      w.userData.wanderT -= dt;
+      if (w.userData.wanderT <= 0) {
+        w.userData.wanderT = 2 + Math.random() * 4;
+        w.userData.wanderDir = Math.random() * Math.PI * 2;
+      }
+      const spd = (w.userData.type === 'chicken' ? 2.2 : w.userData.type === 'cat' ? 2.8 : 1.6);
+      w.position.x += Math.sin(w.userData.wanderDir) * spd * dt;
+      w.position.z += Math.cos(w.userData.wanderDir) * spd * dt;
+      w.position.x = Math.max(-88, Math.min(88, w.position.x));
+      w.position.z = Math.max(-88, Math.min(88, w.position.z));
+      // chicken can climb castle floors
+      let gy = terrainHeight(w.position.x, w.position.z);
+      if (w.userData.type === 'chicken') {
+        const cy = getCastleY(w.position.x, w.position.z);
+        if (cy != null && cy > gy) gy = cy;
+      }
+      w.position.y = gy;
+      w.rotation.y = w.userData.wanderDir;
+    }
+
+    // Captured companions
+    const followBase = vehicleState.occupied ? car.position : gameState.charPos;
+    companions.forEach((c, i) => {
+      if (!c.userData.captured) return;
+      const type = c.userData.type;
+      // Leader recruit AI
+      if (c.userData.leader) {
+        c.userData.recruitTimer -= dt;
+        if (c.userData.recruitTimer <= 0) {
+          c.userData.recruitTimer = 3.5 + Math.random() * 2;
+          let target = null, td = 28;
+          for (const w of wildAnimals) {
+            if (w.userData.type !== type) continue;
+            // chickens prefer tower area
+            if (type === 'chicken') {
+              const onTower = getCastleY(w.position.x, w.position.z) != null;
+              const leaderOnTower = getCastleY(c.position.x, c.position.z) != null;
+              if (leaderOnTower && !onTower) continue;
+            }
+            const d = c.position.distanceTo(w.position);
+            if (d < td) { td = d; target = w; }
+          }
+          if (target) {
+            if (td < 2.8) recruitWild(c, target);
+            else {
+              const dx = target.position.x - c.position.x;
+              const dz = target.position.z - c.position.z;
+              const dist = Math.hypot(dx, dz) || 1;
+              c.position.x += (dx / dist) * 4.5 * dt * 8; // burst step via timer cadence handled by continuous move below
+              c.userData.chase = target;
+            }
+          } else if (type === 'chicken') {
+            // head toward castle perch to look for recruits
+            const tx = castleCenter.x, tz = castleCenter.y;
+            const dx = tx - c.position.x, dz = tz - c.position.z;
+            const dist = Math.hypot(dx, dz) || 1;
+            if (dist > 3) {
+              c.position.x += (dx / dist) * 3.2 * dt;
+              c.position.z += (dz / dist) * 3.2 * dt;
+            }
+          }
+        }
+        if (c.userData.chase && !c.userData.chase.userData.captured) {
+          const t = c.userData.chase;
+          const dx = t.position.x - c.position.x;
+          const dz = t.position.z - c.position.z;
+          const dist = Math.hypot(dx, dz) || 1;
+          if (dist < 2.8) { recruitWild(c, t); c.userData.chase = null; }
+          else {
+            c.position.x += (dx / dist) * 4.2 * dt;
+            c.position.z += (dz / dist) * 4.2 * dt;
+            c.rotation.y = Math.atan2(dx, dz);
+          }
+        }
+      }
+      // Beaver work — approach often, chop only on timer tick
+      if (type === 'beaver') {
+        c.userData.workTimer -= dt;
+        const doChop = c.userData.workTimer <= 0;
+        if (doChop) c.userData.workTimer = 5.5;
+        beaverWork(c, doChop);
+      }
+      // Dog rock gather (same pattern as beaver wood)
+      if (type === 'dog') {
+        c.userData.workTimer -= dt;
+        const doPick = c.userData.workTimer <= 0;
+        if (doPick) c.userData.workTimer = 4.2;
+        dogRockWork(c, doPick);
+      }
+      // Horse circle-guard around player
+      if (type === 'horse') {
+        const ang = gameState.playTime * 1.1 + i * 1.7;
+        const radius = 3.2 + (i % 2) * 0.8;
+        const tx = followBase.x + Math.sin(ang) * radius;
+        const tz = followBase.z + Math.cos(ang) * radius;
+        const dx = tx - c.position.x, dz = tz - c.position.z;
+        const dist = Math.hypot(dx, dz) || 1;
+        c.position.x += (dx / dist) * Math.min(dist, 6.5) * dt;
+        c.position.z += (dz / dist) * Math.min(dist, 6.5) * dt;
+        c.rotation.y = Math.atan2(dx, dz);
+        c.position.y = terrainHeight(c.position.x, c.position.z);
+      }
+      // Chicken air assault on Wyrm when 10+ companions
+      if (type === 'chicken' && chickenAssaultActive() && wyrmActive && wyrm) {
+        if (!gameState.chickenAssaultToast) {
+          gameState.chickenAssaultToast = true;
+          showToast('🐔 Chickens take flight against the Wyrm!');
+        }
+        const target = wyrm.position;
+        const dx = target.x - c.position.x;
+        const dy = (target.y - 1.5) - c.position.y;
+        const dz = target.z - c.position.z;
+        const dist = Math.hypot(dx, dy, dz) || 1;
+        c.position.x += (dx / dist) * 7 * dt;
+        c.position.y += (dy / dist) * 7 * dt;
+        c.position.z += (dz / dist) * 7 * dt;
+        c.rotation.y = Math.atan2(dx, dz);
+        c.userData.flying = true;
+        if (dist < 3.2) {
+          c.userData.workTimer = (c.userData.workTimer || 0) - dt;
+          if (c.userData.workTimer <= 0) {
+            c.userData.workTimer = 0.85;
+            damageWyrm(2);
+            sfx.hit();
+            spawnParticle(c.position, 0xffeecc, 0.4);
+          }
+        }
+      } else if (type === 'chicken') {
+        c.userData.flying = false;
+      }
+      // Follow player when not chasing / working hard
+      if (!(c.userData.leader && c.userData.chase) && type !== 'beaver' && type !== 'dog' && type !== 'horse' && !(type === 'chicken' && c.userData.flying)) {
+        const angle = (i / Math.max(1, companions.length)) * Math.PI * 2;
+        const radius = 2.2 + (i % 3) * 0.6;
+        const tx = followBase.x + Math.sin(angle + gameState.playTime * 0.3) * radius;
+        const tz = followBase.z + Math.cos(angle + gameState.playTime * 0.3) * radius;
+        const dx = tx - c.position.x, dz = tz - c.position.z;
+        const dist = Math.hypot(dx, dz);
+        if (dist > 0.4) {
+          const spd = type === 'horse' ? 7 : type === 'chicken' ? 4.5 : 5.5;
+          c.position.x += (dx / dist) * Math.min(dist, spd) * dt;
+          c.position.z += (dz / dist) * Math.min(dist, spd) * dt;
+          c.rotation.y = Math.atan2(dx, dz);
+        }
+      } else if (type === 'beaver' && !c.userData.leader) {
+        const dx = followBase.x - c.position.x, dz = followBase.z - c.position.z;
+        const dist = Math.hypot(dx, dz);
+        if (dist > 8) {
+          c.position.x += (dx / dist) * 4 * dt;
+          c.position.z += (dz / dist) * 4 * dt;
+        }
+      }
+      if (!(type === 'chicken' && c.userData.flying)) {
+        let gy = terrainHeight(c.position.x, c.position.z);
+        if (type === 'chicken') {
+          const cy = getCastleY(c.position.x, c.position.z);
+          if (cy != null && cy > gy) gy = cy;
+        }
+        c.position.y = gy;
+      }
+    });
+
+    // Soft tree regen — restore far chopped trees so forest stays alive
+    treeRegenTimer -= dt;
+    if (treeRegenTimer <= 0) {
+      treeRegenTimer = 40 + Math.random() * 25;
+      const px = gameState.charPos.x, pz = gameState.charPos.z;
+      for (let i = 0; i < treeInstances.length; i++) {
+        const t = treeInstances[i];
+        if (!t.chopped) continue;
+        if (Math.hypot(t.x - px, t.z - pz) < 35) continue;
+        t.chopped = false;
+        // restore instance matrix
+        const sc = t.sc;
+        treeDummy.position.set(t.x, t.y + 1.25 * sc, t.z);
+        treeDummy.scale.set(sc, sc, sc);
+        treeDummy.updateMatrix();
+        trunkMesh.setMatrixAt(i, treeDummy.matrix);
+        trunkMesh.instanceMatrix.needsUpdate = true;
+        for (let j = 0; j < 3; j++) {
+          treeDummy.position.set(t.x, t.y + (2.7 + j * 1.1) * sc, t.z);
+          treeDummy.updateMatrix();
+          foliageMeshes[j].setMatrixAt(i, treeDummy.matrix);
+          foliageMeshes[j].instanceMatrix.needsUpdate = true;
+        }
+        break; // one per tick
+      }
+      // soft rock respawn far from player
+      for (const r of collectibleRocks) {
+        if (!r.userData.collected) continue;
+        if (Math.hypot(r.position.x - gameState.charPos.x, r.position.z - gameState.charPos.z) < 40) continue;
+        r.userData.collected = false;
+        r.visible = true;
+        break;
+      }
+    }
+  }
+
+  // ===== v36 FRIENDLY PEN BUILDERS (AI) — spend wood to pen cows =====
+  const penBuilders = [];
+  const penPosts = [];
+  const PEN_WOOD_COST = 4;
+  function makeBuilderNpc(i) {
+    const g = new THREE.Group();
+    const tunic = new THREE.MeshStandardMaterial({ color: i % 2 ? 0x4a7a9a : 0x6a8a5a, roughness: 0.8 });
+    const skin = new THREE.MeshStandardMaterial({ color: 0xc4a070, roughness: 0.75 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.7, 0.3), tunic);
+    body.position.y = 0.85; body.castShadow = true; g.add(body);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.32, 0.32), skin);
+    head.position.y = 1.35; g.add(head);
+    [[-0.12, 0.25, 0], [0.12, 0.25, 0]].forEach(p => {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.5, 0.12), new THREE.MeshStandardMaterial({ color: 0x3a3028 }));
+      leg.position.set(p[0], p[1], p[2]); g.add(leg);
+    });
+    g.userData = { timer: 2 + i, targetCow: null, phase: Math.random() * 6.28 };
+    const pos = randomAnimalPos();
+    g.position.set(pos.x, terrainHeight(pos.x, pos.z), pos.z);
+    scene.add(g);
+    penBuilders.push(g);
+  }
+  makeBuilderNpc(0);
+  makeBuilderNpc(1);
+  makeBuilderNpc(2);
+
+  function buildPenAround(cow) {
+    if (!cow || cow.userData.penned) return false;
+    if (gameState.wood < PEN_WOOD_COST) return false;
+    gameState.wood -= PEN_WOOD_COST;
+    woodCountEl.textContent = gameState.wood;
+    const cx = cow.position.x, cz = cow.position.z;
+    const postMat = new THREE.MeshStandardMaterial({ color: 0x6a4a28, roughness: 0.9 });
+    const railMat = new THREE.MeshStandardMaterial({ color: 0x8a6230, roughness: 0.85 });
+    const posts = [];
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const px = cx + Math.sin(a) * 3.2;
+      const pz = cz + Math.cos(a) * 3.2;
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 1.4, 5), postMat);
+      post.position.set(px, terrainHeight(px, pz) + 0.7, pz);
+      post.castShadow = true;
+      scene.add(post);
+      posts.push(post);
+      penPosts.push(post);
+      const a2 = ((i + 1) / 6) * Math.PI * 2;
+      const px2 = cx + Math.sin(a2) * 3.2, pz2 = cz + Math.cos(a2) * 3.2;
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 3.3), railMat);
+      rail.position.set((px + px2) / 2, terrainHeight(px, pz) + 0.9, (pz + pz2) / 2);
+      rail.rotation.y = Math.atan2(px2 - px, pz2 - pz);
+      scene.add(rail);
+      penPosts.push(rail);
+      posts.push(rail);
+    }
+    cow.userData.penned = true;
+    cow.userData.penCenter = { x: cx, z: cz };
+    showToast('🛖 Cow penned (−' + PEN_WOOD_COST + ' wood)');
+    sfx.camp();
+    addReputation(2);
+    return true;
+  }
+
+  function updatePenBuilders(dt) {
+    const cows = [...companions, ...wildAnimals].filter(a => a.userData.type === 'cow' && !a.userData.penned);
+    for (const b of penBuilders) {
+      b.userData.timer -= dt;
+      let target = b.userData.targetCow;
+      if (!target || target.userData.penned || (!companions.includes(target) && !wildAnimals.includes(target))) {
+        target = cows.length ? cows[(penBuilders.indexOf(b) + (gameState.playTime|0)) % cows.length] : null;
+        b.userData.targetCow = target;
+      }
+      if (!target) {
+        // idle wander near player
+        const ang = b.userData.phase + gameState.playTime * 0.2;
+        const tx = gameState.charPos.x + Math.sin(ang) * 12;
+        const tz = gameState.charPos.z + Math.cos(ang) * 12;
+        const dx = tx - b.position.x, dz = tz - b.position.z;
+        const dist = Math.hypot(dx, dz) || 1;
+        if (dist > 1) {
+          b.position.x += (dx / dist) * 2.2 * dt;
+          b.position.z += (dz / dist) * 2.2 * dt;
+        }
+        b.position.y = terrainHeight(b.position.x, b.position.z);
+        continue;
+      }
+      const dx = target.position.x - b.position.x;
+      const dz = target.position.z - b.position.z;
+      const dist = Math.hypot(dx, dz) || 1;
+      if (dist > 4) {
+        b.position.x += (dx / dist) * 2.8 * dt;
+        b.position.z += (dz / dist) * 2.8 * dt;
+        b.rotation.y = Math.atan2(dx, dz);
+      } else if (b.userData.timer <= 0) {
+        b.userData.timer = 6;
+        if (gameState.wood >= PEN_WOOD_COST) {
+          buildPenAround(target);
+        } else if (Math.random() < 0.3) {
+          showToast('Builder needs ' + PEN_WOOD_COST + ' wood to pen a cow');
+        }
+      }
+      b.position.y = terrainHeight(b.position.x, b.position.z);
+    }
+    // Keep penned cows near their pen
+    for (const c of companions.concat(wildAnimals)) {
+      if (!c.userData.penned || !c.userData.penCenter) continue;
+      const pc = c.userData.penCenter;
+      const d = Math.hypot(c.position.x - pc.x, c.position.z - pc.z);
+      if (d > 2.8) {
+        c.position.x += (pc.x - c.position.x) * 0.05;
+        c.position.z += (pc.z - c.position.z) * 0.05;
+      }
+    }
+  }
+
+  function spawnDog() {
+    if (dog) return;
+    dog = makeAnimalMesh('dog');
+    dog.userData.captured = true;
+    dog.position.copy(gameState.charPos);
+    dog.position.y = terrainHeight(dog.position.x, dog.position.z);
+    scene.add(dog);
+    companions.push(dog);
+    if (!speciesLeader.dog) {
+      speciesLeader.dog = dog;
+      dog.userData.leader = true;
+    }
+    showToast('🐕 A loyal companion joins you');
+  }
+
+  // Projectiles + particles
+  const projectiles = [];
+  const particles = [];
+  const particleGeo = new THREE.SphereGeometry(0.11, 4, 4);
+  function spawnParticle(pos, color, life = 0.6) {
+    const maxP = quality === 2 ? 90 : quality === 1 ? 36 : 16;
+    if (particles.length > maxP) return;
+    const p = new THREE.Mesh(
+      particleGeo,
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 })
+    );
+    p.position.copy(pos);
+    p.userData = {
+      vel: new THREE.Vector3((Math.random() - 0.5) * 4, Math.random() * 3 + 1, (Math.random() - 0.5) * 4),
+      life, maxLife: life
+    };
+    scene.add(p);
+    particles.push(p);
+  }
+
+  // Abyssal Wyrm (flying) + Ground Dragon (v15)
+  let wyrm = null, wyrmActive = false, wyrmHP = WYRM_HP;
+  const wyrmWings = [];
+  let groundDragon = null, groundDragonActive = false, groundDragonHP = GROUND_DRAGON_HP;
+  const fireProjectiles = []; // shared fire-breath bolts from either dragon
+  const fireGeo = new THREE.SphereGeometry(0.28, 6, 6);
+  const fireMat = new THREE.MeshBasicMaterial({ color: 0xff6622 });
+
+  function spawnFireBreath(origin, targetPos, fromGround) {
+    const dir = targetPos.clone().sub(origin).normalize();
+    // slight spread so it isn't a laser
+    dir.x += (Math.random() - 0.5) * 0.12;
+    dir.y += (Math.random() - 0.5) * 0.08;
+    dir.z += (Math.random() - 0.5) * 0.12;
+    dir.normalize();
+    const bolt = new THREE.Mesh(fireGeo, fireMat.clone());
+    bolt.position.copy(origin);
+    bolt.userData = {
+      vel: dir.multiplyScalar(FIRE_BREATH_SPEED * (fromGround ? 0.85 : 1.0)),
+      life: 0,
+      fromGround: !!fromGround
+    };
+    scene.add(bolt);
+    fireProjectiles.push(bolt);
+    for (let k = 0; k < (quality >= 1 ? 5 : 2); k++) spawnParticle(origin, 0xff4422, 0.4);
+    sfx.fire();
+  }
+
+  function spawnWyrm() {
+    crosshairEl.classList.add('free-aim');
+    freeAimHint.style.display = 'block';
+    setTimeout(() => { /* keep free-aim while active */ }, 50);
+
+    if (wyrmActive) return;
+    const group = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x12001e, roughness: 0.35, metalness: 0.55,
+      emissive: 0x2a0060, emissiveIntensity: 0.55
+    });
+    group.add(new THREE.Mesh(new THREE.SphereGeometry(2.4, 14, 10), mat));
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.85, 2.1, 8), mat);
+    neck.position.set(0, 0.7, 2.5);
+    neck.rotation.x = 0.45;
+    group.add(neck);
+    const wHead = new THREE.Mesh(new THREE.ConeGeometry(0.85, 1.5, 8), mat);
+    wHead.position.set(0, 1.3, 3.9);
+    wHead.rotation.x = Math.PI / 2;
+    group.add(wHead);
+    for (const side of [-1, 1]) {
+      for (const front of [1, -1]) {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.26, 1.3, 6), mat);
+        leg.position.set(side * 1.85, -1.05, front * 1.7);
+        group.add(leg);
+      }
+    }
+    for (const side of [-1, 1]) {
+      const pivot = new THREE.Group();
+      pivot.position.set(side * 2.2, 1.4, 0);
+      pivot.rotation.z = side * 0.65;
+      const wing = new THREE.Mesh(
+        new THREE.BoxGeometry(0.1, 5.2, 2.0),
+        new THREE.MeshStandardMaterial({ color: 0x1a0035, roughness: 0.5, transparent: true, opacity: 0.85 })
+      );
+      wing.position.y = 2.5;
+      pivot.add(wing);
+      wyrmWings.push({ pivot, side, baseRotZ: side * 0.65 });
+      group.add(pivot);
+    }
+    const tail = new THREE.Mesh(new THREE.ConeGeometry(0.45, 3.2, 6), mat);
+    tail.position.set(0, 0, -3.3);
+    tail.rotation.x = -Math.PI / 2;
+    group.add(tail);
+
+    group.position.set(0, 48, 0);
+    group.userData = { flyAngle: 0, fireCD: 1.5 };
+    scene.add(group);
+    wyrm = group;
+    wyrmActive = true;
+    wyrmHP = WYRM_HP;
+    bossHpContainer.style.display = 'flex';
+    document.getElementById('boss-hp-text').textContent = 'ABYSSAL WYRM';
+    bossHpFill.style.width = '100%';
+    showToast('🐉 ABYSSAL WYRM AWAKENS');
+    setTimeout(() => showToast('Free aim enabled — it breathes fire'), 600);
+    setObjective('Defeat the Abyssal Wyrm — free aim active');
+  }
+
+  function damageWyrm(amount) {
+    if (!wyrmActive) return;
+    wyrmHP -= amount;
+    bossHpFill.style.width = `${Math.max(0, (wyrmHP / WYRM_HP) * 100)}%`;
+    if (wyrmHP <= 0) defeatWyrm();
+  }
+  function defeatWyrm() {
+    if (wyrm) {
+      for (let i = 0; i < 30; i++) spawnParticle(wyrm.position, 0xaa44ff, 1.2);
+      const dropCount = 1 + Math.floor(Math.random() * 2); // 1-2
+      spawnScaleDrops(wyrm.position.clone(), dropCount);
+      scene.remove(wyrm);
+    }
+    wyrm = null;
+    wyrmActive = false;
+    bossHpContainer.style.display = 'none';
+    badgeEl.style.display = 'block';
+    freeAimHint.style.display = 'none';
+    crosshairEl.classList.remove('free-aim');
+    addReputation(80);
+    showToast('🏆 ABYSS SLAYER — Scales dropped');
+    gameState.wyrmDefeated = true;
+    gameState.postDefeatKills = 0;
+    // Post-boss objective using new systems
+    gameState.postBossActive = true;
+    gameState.postBossAngleAccum = 0;
+    gameState.postBossLastAngle = Math.atan2(car.position.x - castleCenter.x, car.position.z - castleCenter.y);
+    setObjective(`Collect ${gameState.postBossCoinsNeeded} coins & drive a lap around the castle  (${gameState.coins}/${gameState.postBossCoinsNeeded})`);
+    showToast('New goal: coin lap around the castle');
+    // v15: ground dragon rises after the flying Wyrm falls
+    setTimeout(() => spawnGroundDragon(), 2200);
+  }
+
+  function spawnGroundDragon() {
+    if (groundDragonActive) return;
+    const group = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x1a0a08, roughness: 0.4, metalness: 0.45,
+      emissive: 0x4a1200, emissiveIntensity: 0.65
+    });
+    // lower, bulkier body — ground predator
+    group.add(new THREE.Mesh(new THREE.SphereGeometry(2.0, 12, 9), mat));
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.75, 1.8, 8), mat);
+    neck.position.set(0, 0.5, 2.2);
+    neck.rotation.x = 0.55;
+    group.add(neck);
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.75, 1.4, 8), mat);
+    head.position.set(0, 1.0, 3.4);
+    head.rotation.x = Math.PI / 2;
+    group.add(head);
+    for (const side of [-1, 1]) {
+      for (const front of [1, -1]) {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, 1.6, 6), mat);
+        leg.position.set(side * 1.6, -1.2, front * 1.4);
+        group.add(leg);
+      }
+    }
+    // smaller folded wings
+    for (const side of [-1, 1]) {
+      const wing = new THREE.Mesh(
+        new THREE.BoxGeometry(0.08, 2.8, 1.4),
+        new THREE.MeshStandardMaterial({ color: 0x2a0800, roughness: 0.55, transparent: true, opacity: 0.8 })
+      );
+      wing.position.set(side * 2.0, 0.8, 0);
+      wing.rotation.z = side * 0.9;
+      group.add(wing);
+    }
+    const tail = new THREE.Mesh(new THREE.ConeGeometry(0.4, 2.8, 6), mat);
+    tail.position.set(0, 0, -2.9);
+    tail.rotation.x = -Math.PI / 2;
+    group.add(tail);
+
+    // Spawn near castle, on the ground
+    const sx = castleCenter.x - 18;
+    const sz = castleCenter.y + (Math.random() - 0.5) * 12;
+    group.position.set(sx, terrainHeight(sx, sz) + 1.6, sz);
+    group.userData = { fireCD: 1.0, speed: 7.2 };
+    scene.add(group);
+    groundDragon = group;
+    groundDragonActive = true;
+    groundDragonHP = GROUND_DRAGON_HP;
+    bossHpContainer.style.display = 'flex';
+    document.getElementById('boss-hp-text').textContent = 'ABYSSAL HUNTER';
+    bossHpFill.style.width = '100%';
+    bossHpFill.style.background = 'linear-gradient(90deg, #8a2000, #ff6622)';
+    showToast('🐉 The Wyrm lands — Abyssal Hunter pursues!');
+    setObjective('Survive the Abyssal Hunter — it breathes fire and chases you');
+  }
+
+  function damageGroundDragon(amount) {
+    if (!groundDragonActive) return;
+    groundDragonHP -= amount;
+    bossHpFill.style.width = `${Math.max(0, (groundDragonHP / GROUND_DRAGON_HP) * 100)}%`;
+    if (groundDragonHP <= 0) defeatGroundDragon();
+  }
+  function defeatGroundDragon() {
+    if (groundDragon) {
+      for (let i = 0; i < 28; i++) spawnParticle(groundDragon.position, 0xff6622, 1.1);
+      spawnScaleDrops(groundDragon.position.clone(), 2);
+      scene.remove(groundDragon);
+    }
+    groundDragon = null;
+    groundDragonActive = false;
+    bossHpContainer.style.display = 'none';
+    bossHpFill.style.background = 'linear-gradient(90deg, #4a00a8, #c44cff)';
+    addReputation(40);
+    showToast('🏆 Abyssal Hunter slain — more Scales');
+    if (gameState.postBossActive && !gameState.postBossLapDone) {
+      updateObjectiveProgress();
+    } else {
+      setObjective('Explore · dig ponds · hunt · C for cheats');
+    }
+  }
+
+  // Game state
+  const gameState = {
+    charPos: new THREE.Vector3(0, terrainHeight(0, 0), 0),
+    yaw: 0,
+    pitch: 0.15,
+    bobPhase: 0,
+    pearls: 0,
+    reputation: 0,
+    collectedGems: 0,
+    wood: 0,
+    scales: 0,
+    campsBuilt: 0,
+    coins: 0,
+    fuel: 0,
+    maxFuel: 100,
+    fuelPerCoin: 10,
+    health: MAX_HEALTH,
+    invulnTimer: 0,
+    stunTimer: 0,
+    healthRecoverAt: 0,
+    undying: false,
+    postDefeatKills: 0,
+    camKick: 0,
+    legendTimer: 0,
+    legendPinned: false,
+    sunAngle: 0.55,
+    keys: {},
+    wyrmSpawned: false,
+    wyrmDefeated: false,
+    mouseLocked: false,
+    mouseDX: 0,
+    mouseDY: 0,
+    paused: false,
+    velocityY: 0,
+    grounded: true,
+    tutorialDone: false,
+    chopCooldown: 0,
+    axeSwing: 0,
+    buildCooldown: 0,
+    // contextual one-time flags
+    firstWood: false,
+    firstCamp: false,
+    firstCoin: false,
+    firstCarNear: false,
+    lastRepTitle: 'WANDERER',
+    // post-boss objective
+    postBossActive: false,
+    postBossCoinsNeeded: 15,
+    postBossLapDone: false,
+    postBossStartAngle: 0,
+    postBossAngleAccum: 0,
+    postBossLastAngle: 0,
+    // v34 wanderer contracts (post-lap only)
+    wanderType: null,
+    wanderNeed: 0,
+    wanderHave: 0,
+    wanderDone: 0,
+    wanderDriveAcc: 0,
+    // v35 companions / forestry
+    treesChopped: 0,
+    beaverUnlocked: false,
+    rocks: 0,
+    dogUnlocked: false,
+    hasSword: false,
+    // v15 escalation
+    playTime: 0,
+    escalationTimer: 45
+  };
+
+  function getRepTitle(rep) {
+    if (rep >= 80) return '✦ LEGEND ✦';
+    if (rep >= 55) return 'GUARDIAN';
+    if (rep >= 30) return 'SEEKER';
+    if (rep >= 10) return 'PATHFINDER';
+    return 'WANDERER';
+  }
+  function addReputation(amount) {
+    gameState.reputation = Math.min(100, gameState.reputation + amount);
+    repCountEl.textContent = gameState.reputation;
+    const title = getRepTitle(gameState.reputation);
+    repTitleEl.textContent = title;
+    repGlow.classList.add('pulse');
+    setTimeout(() => repGlow.classList.remove('pulse'), 700);
+    if (title !== gameState.lastRepTitle) {
+      gameState.lastRepTitle = title;
+      showToast('Rank: ' + title);
+      repGlow.classList.add('pulse');
+    }
+  }
+
+  function updateHealthUI() {
+    heartEls.forEach((el, i) => {
+      el.classList.toggle('empty', i >= gameState.health);
+    });
+  }
+  updateHealthUI();
+
+  function takeDamage(amount, fromPos, opts) {
+    if (gameState.undying || gameState.invulnTimer > 0 || gameState.stunTimer > 0) return;
+    const isWalker = opts && opts.walker;
+    if (horseShieldActive() && isWalker) {
+      if (Math.random() < 0.2) showToast('🐎 Horses block the Void!');
+      return;
+    }
+    gameState.health = Math.max(0, gameState.health - amount);
+    gameState.invulnTimer = 0.9;
+    sfx.damage();
+    updateHealthUI();
+    heartEls.forEach(h => h.classList.add('hit'));
+    setTimeout(() => heartEls.forEach(h => h.classList.remove('hit')), 200);
+    edgeFlash.style.borderColor = 'rgba(255, 40, 60, 0.7)';
+    edgeFlash.classList.add('show');
+    setTimeout(() => edgeFlash.classList.remove('show'), 280);
+    if (fromPos) {
+      const push = gameState.charPos.clone().sub(fromPos).normalize();
+      gameState.charPos.x += push.x * 3.2;
+      gameState.charPos.z += push.z * 3.2;
+      if (vehicleState.occupied) {
+        car.position.x += push.x * 2.5;
+        car.position.z += push.z * 2.5;
+      }
+    }
+    if (gameState.health <= 0) {
+      gameState.stunTimer = 1.4;
+      gameState.healthRecoverAt = 2.0;
+      // Full invuln through stun + 1.8s recovery window so player is not re-hit immediately
+      gameState.invulnTimer = 3.4;
+      showToast('Stunned — recovering…');
+      if (vehicleState.occupied) exitVehicle(false);
+    } else {
+      showToast('Hit!');
+    }
+  }
+
+  function updateFuelUI() {
+    fuelCountEl.textContent = Math.floor(gameState.fuel);
+    const pct = Math.min(100, (gameState.fuel / gameState.maxFuel) * 100);
+    fuelBarFill.style.width = pct + '%';
+    fuelBarFill.classList.toggle('low', pct < 25 && pct > 0);
+  }
+
+  // v34: after the armor lap, keep a living objective using only existing verbs
+  const WANDER_LABELS = {
+    wood: 'Gather wood — chop trees (E)',
+    camp: 'Raise a campfire (B, 5 wood)',
+    pond: 'Dig water holes (G) — connect two for a pond',
+    gems: 'Collect Resonance Gems still in the field',
+    coins: 'Pocket gold coins to keep the tank fed',
+    hunt: 'Hunt Void Walkers for pearls & rep',
+    drive: 'Take the car for a cruise (V)',
+    cube: 'Stack a wood cube outpost (T, 2 wood)'
+  };
+
+  function pickWanderContract() {
+    const gemsLeft = gems.filter(g => !g.userData.collected).length;
+    const coinsLeft = coins.filter(c => !c.userData.collected).length;
+    const pool = [];
+    if (gameState.wood < 12) pool.push(['wood', 8]);
+    if (gameState.campsBuilt < MAX_CAMPS) pool.push(['camp', 1]);
+    if (waterHoles.length < 4) pool.push(['pond', 2]);
+    if (gemsLeft >= 3) pool.push(['gems', Math.min(5, gemsLeft)]);
+    if (coinsLeft >= 4) pool.push(['coins', Math.min(6, coinsLeft)]);
+    pool.push(['hunt', 3]);
+    pool.push(['drive', 80]);
+    if (gameState.wood >= CUBE_WOOD_COST) pool.push(['cube', 1]);
+    // rotate so we don't immediately re-roll the same type
+    const filtered = pool.filter(p => p[0] !== gameState.wanderType);
+    const pick = (filtered.length ? filtered : pool)[gameState.wanderDone % (filtered.length ? filtered.length : pool.length)];
+    gameState.wanderType = pick[0];
+    gameState.wanderNeed = pick[1];
+    gameState.wanderHave = 0;
+    gameState.wanderDriveAcc = 0;
+  }
+
+  function wanderLabel() {
+    const t = gameState.wanderType;
+    if (!t) return 'Explore · dig ponds · hunt · drive';
+    const have = Math.min(gameState.wanderHave, gameState.wanderNeed);
+    return (WANDER_LABELS[t] || t) + '  (' + have + '/' + gameState.wanderNeed + ')';
+  }
+
+  function noteWander(type, amt) {
+    if (!gameState.postBossLapDone) return;
+    if (!gameState.wanderType) pickWanderContract();
+    if (type && gameState.wanderType !== type) return;
+    if (amt == null) amt = 1;
+    gameState.wanderHave += amt;
+    if (gameState.wanderNeed > 0 && gameState.wanderHave >= gameState.wanderNeed) {
+      gameState.wanderDone++;
+      addReputation(2);
+      showToast('Contract complete — new wanderer task');
+      sfx.armor();
+      pickWanderContract();
+    }
+    updateObjectiveProgress();
+  }
+
+  function updateObjectiveProgress() {
+    if (gameState.postBossActive) {
+      if (gameState.postBossLapDone) {
+        if (!gameState.wanderType) pickWanderContract();
+        setObjective('Armor earned · ' + wanderLabel());
+      } else {
+        const lapPct = Math.min(100, Math.floor((Math.abs(gameState.postBossAngleAccum) / (Math.PI * 2)) * 100));
+        setObjective('Coins ' + gameState.coins + '/' + gameState.postBossCoinsNeeded + '  ·  Lap ' + lapPct + '% — drive a full circuit around the castle');
+      }
+    } else if (gameState.wyrmSpawned && wyrmActive) {
+      setObjective('Defeat the Abyssal Wyrm — free aim active');
+    } else {
+      setObjective('Collect Resonance Gems & defeat Void Walkers for pearls (' + gameState.pearls + '/' + REQUIRED_PEARLS + ')');
+    }
+  }
+
+  function flashPickup() {
+    gameState.camKick = 0.18;
+    edgeFlash.style.borderColor = 'rgba(100, 220, 255, 0.55)';
+    edgeFlash.classList.add('show');
+    setTimeout(() => edgeFlash.classList.remove('show'), 220);
+  }
+
+  function setObjective(text) {
+    if (!text) { objectiveLine.style.display = 'none'; return; }
+    objectiveLine.textContent = text;
+    objectiveLine.style.display = 'block';
+  }
+
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    setTimeout(() => toastEl.classList.remove('show'), 900);
+  }
+
+  function togglePause() {
+    gameState.paused = !gameState.paused;
+    pauseOverlay.style.display = gameState.paused ? 'flex' : 'none';
+    if (gameState.paused && document.pointerLockElement === canvas) document.exitPointerLock();
+  }
+
+  function cycleQuality() {
+    quality = (quality + 2) % 3;
+    const high = quality === 2;
+    const med = quality >= 1;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, high ? 2 : med ? 1.4 : 1));
+    renderer.shadowMap.enabled = med;
+    sunLight.castShadow = med;
+    sunLight.shadow.mapSize.set(high ? 2048 : med ? 1024 : 512, high ? 2048 : med ? 1024 : 512);
+    orbGroup.children.forEach(orb => {
+      orb.children.forEach(ch => {
+        if (ch.isLight) ch.intensity = quality === 0 ? 0 : 0.35;
+      });
+    });
+    camps.forEach(c => {
+      if (c.userData.light) c.userData.light.intensity = quality === 0 ? 0.6 : c.userData.baseIntensity;
+    });
+    sfx.unlock();
+    sfx.applyQualityMute();
+    if (quality >= 1) {
+      sfx.setAmbientMuted(false);
+      sfx.startAmbient();
+    } else {
+      sfx.setAmbientMuted(true);
+    }
+    showToast(`Graphics: ${qualityNames[quality]}` + (quality < 1 ? ' (SFX muted)' : ''));
+  }
+
+
+  document.getElementById('save-btn').addEventListener('click', () => {
+    const name = (document.getElementById('save-name').value || 'ethereal-save').trim().replace(/[^\w\- ]+/g, '').slice(0, 32) || 'ethereal-save';
+    const data = {
+      version: 8, name,
+      pearls: gameState.pearls, reputation: gameState.reputation,
+      collectedGems: gameState.collectedGems, wood: gameState.wood,
+      scales: gameState.scales, coins: gameState.coins, fuel: gameState.fuel,
+      health: gameState.health, campsBuilt: gameState.campsBuilt,
+      wyrmSpawned: gameState.wyrmSpawned, wyrmDefeated: gameState.wyrmDefeated,
+      postBossActive: gameState.postBossActive, postBossLapDone: gameState.postBossLapDone,
+      wanderType: gameState.wanderType, wanderNeed: gameState.wanderNeed,
+      wanderHave: gameState.wanderHave, wanderDone: gameState.wanderDone,
+      treesChopped: gameState.treesChopped|0, beaverUnlocked: !!gameState.beaverUnlocked,
+      rocks: gameState.rocks|0, dogUnlocked: !!gameState.dogUnlocked, hasSword: !!gameState.hasSword,
+      companions: companions.map(c => ({
+        type: c.userData.type, leader: !!c.userData.leader,
+        x: c.position.x, y: c.position.y, z: c.position.z
+      })),
+      pos: { x: gameState.charPos.x, y: gameState.charPos.y, z: gameState.charPos.z },
+      yaw: gameState.yaw,
+      // v31 world edits
+      camps: camps.map(c => ({ x: c.position.x, y: c.position.y, z: c.position.z })),
+      waterHoles: waterHoles.map(h => ({ x: h.x, z: h.z })),
+      choppedTrees: treeInstances.map((t, i) => t.chopped ? i : -1).filter(i => i >= 0),
+      woodCubes: woodCubes.filter(c => c.userData.alive).map(c => ({ x: c.position.x, y: c.position.y, z: c.position.z }))
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name + '.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast('Saved: ' + name + '.json');
+  });
+
+  function applyLoadedSave(data) {
+    if (!data || typeof data !== 'object') { showToast('Invalid save'); return; }
+    if (vehicleState.occupied) exitVehicle(false);
+    gameState.pearls = Math.max(0, data.pearls|0);
+    gameState.reputation = Math.max(0, Math.min(100, data.reputation|0));
+    gameState.wood = Math.max(0, data.wood|0);
+    gameState.scales = Math.max(0, data.scales|0);
+    gameState.coins = Math.max(0, data.coins|0);
+    gameState.fuel = Math.max(0, Math.min(gameState.maxFuel, Number(data.fuel) || 0));
+    gameState.health = Math.max(1, Math.min(MAX_HEALTH, data.health|0 || MAX_HEALTH));
+    gameState.campsBuilt = Math.max(0, data.campsBuilt|0);
+    gameState.wyrmSpawned = !!data.wyrmSpawned;
+    gameState.wyrmDefeated = !!data.wyrmDefeated;
+    gameState.postBossActive = !!data.postBossActive;
+    gameState.postBossLapDone = !!data.postBossLapDone;
+    gameState.wanderType = data.wanderType || null;
+    gameState.wanderNeed = Math.max(0, data.wanderNeed|0);
+    gameState.wanderHave = Math.max(0, data.wanderHave|0);
+    gameState.wanderDone = Math.max(0, data.wanderDone|0);
+    gameState.wanderDriveAcc = gameState.wanderType === 'drive' ? gameState.wanderHave : 0;
+    gameState.treesChopped = Math.max(0, data.treesChopped|0);
+    gameState.beaverUnlocked = !!data.beaverUnlocked || gameState.treesChopped >= 10;
+    gameState.rocks = Math.max(0, data.rocks|0);
+    gameState.dogUnlocked = !!data.dogUnlocked || gameState.rocks >= 10;
+    gameState.hasSword = !!data.hasSword;
+    rockCountEl.textContent = gameState.rocks;
+    if (swordPanel) swordPanel.style.display = gameState.hasSword ? 'flex' : 'none';
+    if (data.pos && Number.isFinite(data.pos.x) && Number.isFinite(data.pos.z)) {
+      gameState.charPos.set(data.pos.x, Number(data.pos.y) || terrainHeight(data.pos.x, data.pos.z), data.pos.z);
+    }
+    if (Number.isFinite(data.yaw)) gameState.yaw = data.yaw;
+    // Reconstruct collectible visibility from counts (save does not store per-item IDs)
+    const wantGems = Math.max(0, Math.min(GEM_COUNT, data.collectedGems|0));
+    gems.forEach((g, i) => {
+      const taken = i < wantGems;
+      g.userData.collected = taken;
+      g.visible = !taken;
+    });
+    gameState.collectedGems = wantGems;
+    const wantCoins = Math.max(0, Math.min(COIN_COUNT, gameState.coins));
+    coins.forEach((c, i) => {
+      const taken = i < wantCoins;
+      c.userData.collected = taken;
+      c.visible = !taken;
+    });
+    pearlCountEl.textContent = gameState.pearls;
+    repCountEl.textContent = gameState.reputation;
+    woodCountEl.textContent = gameState.wood;
+    scaleCountEl.textContent = gameState.scales;
+    coinCountEl.textContent = gameState.coins;
+    gemCountEl.textContent = gameState.collectedGems;
+    repTitleEl.textContent = getRepTitle(gameState.reputation);
+    gameState.lastRepTitle = getRepTitle(gameState.reputation);
+    updateHealthUI();
+    updateFuelUI();
+    if (gameState.pearls >= 10) spawnDog();
+    if (gameState.postBossLapDone) applyArmorUpgrade();
+    updateObjectiveProgress();
+    if (gameState.wyrmSpawned && !gameState.wyrmDefeated && !wyrmActive) spawnWyrm();
+    if (gameState.wyrmDefeated && !groundDragonActive && !wyrmActive) {
+      // post-wyrm world: hunter may already have been fought; do not auto-respawn it
+      badgeEl.style.display = 'block';
+    }
+    // v31: restore player-built world (camps, ponds, chopped trees)
+    clearPlayerWorldEdits();
+    if (Array.isArray(data.camps)) {
+      for (const c of data.camps) {
+        if (c && Number.isFinite(c.x) && Number.isFinite(c.z)) {
+          // Place camp mesh at exact saved position (no facing offset)
+          const camp = spawnCampAt(c.x, c.z, 0);
+          if (camp && Number.isFinite(c.y)) camp.position.y = c.y;
+          // spawnCampAt offsets by sin/cos; override to exact
+          if (camp) camp.position.set(c.x, Number.isFinite(c.y) ? c.y : terrainHeight(c.x, c.z), c.z);
+        }
+      }
+      gameState.campsBuilt = camps.length;
+    }
+    if (Array.isArray(data.waterHoles)) {
+      for (const h of data.waterHoles) {
+        if (h && Number.isFinite(h.x) && Number.isFinite(h.z)) spawnWaterHoleAt(h.x, h.z);
+      }
+    }
+    if (Array.isArray(data.choppedTrees)) {
+      for (const idx of data.choppedTrees) {
+        const i = idx | 0;
+        if (i >= 0 && i < treeInstances.length && !treeInstances[i].chopped) {
+          treeInstances[i].chopped = true;
+          hideTreeInstance(i);
+        }
+      }
+    }
+    if (Array.isArray(data.woodCubes)) {
+      for (const w of data.woodCubes) {
+        if (w && Number.isFinite(w.x) && Number.isFinite(w.z)) {
+          const mesh = spawnWoodCubeAt(w.x, w.z, Number.isFinite(w.y) ? (w.y - CUBE_SIZE * 0.5) : undefined);
+          if (mesh && Number.isFinite(w.y)) mesh.position.y = w.y;
+        }
+      }
+    }
+    // v35: restore captured companions (wild remain as initially spawned)
+    if (Array.isArray(data.companions)) {
+      // remove any existing captured meshes from prior load
+      for (const c of companions.slice()) {
+        scene.remove(c);
+      }
+      companions.length = 0;
+      for (const k of Object.keys(speciesLeader)) delete speciesLeader[k];
+      dog = null;
+      for (const rec of data.companions) {
+        if (!rec || !rec.type) continue;
+        // pull matching wild of same type if present so we don't double population
+        let mesh = null;
+        for (let i = 0; i < wildAnimals.length; i++) {
+          if (wildAnimals[i].userData.type === rec.type) {
+            mesh = wildAnimals[i];
+            wildAnimals.splice(i, 1);
+            break;
+          }
+        }
+        if (!mesh) mesh = makeAnimalMesh(rec.type);
+        mesh.userData.captured = true;
+        mesh.userData.leader = !!rec.leader;
+        if (Number.isFinite(rec.x) && Number.isFinite(rec.z)) {
+          mesh.position.set(rec.x, Number.isFinite(rec.y) ? rec.y : terrainHeight(rec.x, rec.z), rec.z);
+        }
+        if (!mesh.parent) scene.add(mesh);
+        companions.push(mesh);
+        if (mesh.userData.leader) speciesLeader[rec.type] = mesh;
+        if (rec.type === 'dog') dog = mesh;
+      }
+    }
+    updateObjectiveProgress();
+    sfx.load();
+    showToast('Loaded: ' + (data.name || 'save'));
+  }
+
+  document.getElementById('load-file').addEventListener('change', (ev) => {
+    const file = ev.target.files && ev.target.files[0];
+    ev.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try { applyLoadedSave(JSON.parse(reader.result)); }
+      catch (err) { showToast('Could not read save'); }
+    };
+    reader.readAsText(file);
+  });
+
+  // Input – standard WASD + resource actions
+  function dismissTutorial() {
+    if (gameState.tutorialDone) return;
+    gameState.tutorialDone = true;
+    tutorialOverlay.classList.add('hidden');
+    setTimeout(() => { tutorialOverlay.style.display = 'none'; }, 420);
+    updateObjectiveProgress();
+    gameState.legendPinned = true;
+    minimapLegend.classList.add('pinned');
+    minimapLegend.style.display = 'block';
+  }
+
+  window.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    // Tutorial dismiss on any key
+    if (!gameState.tutorialDone) {
+      dismissTutorial();
+      // still allow the key to process after dismiss except pure UI keys
+    }
+    if (k === 'p' || e.key === 'Escape') {
+      e.preventDefault();
+      if (!gameState.tutorialDone) return;
+      togglePause();
+      return;
+    }
+    if (gameState.paused) return;
+    gameState.keys[k] = true;
+    if (['w', 'a', 's', 'd', ' '].includes(k)) e.preventDefault();
+    if (k === 'c') {
+      const show = cheatBox.style.display !== 'block';
+      cheatBox.style.display = show ? 'block' : 'none';
+      if (show) cheatInput.focus();
+    }
+    if (k === 'q') cycleQuality();
+    if (k === 'm') {
+      gameState.legendPinned = !gameState.legendPinned;
+      if (gameState.legendPinned) {
+        minimapLegend.classList.add('pinned');
+        minimapLegend.style.display = 'block';
+      } else {
+        minimapLegend.classList.remove('pinned');
+        minimapLegend.style.display = 'none';
+      }
+    }
+    if (k === 'e' && !vehicleState.occupied) chopNearestTree();
+    if (k === 'b' && !vehicleState.occupied) placeCamp();
+    if (k === 'g' && !vehicleState.occupied) digHole();
+    if (k === 't' && !vehicleState.occupied) placeWoodCube();
+    if (k === 'r' && !vehicleState.occupied) tryCaptureNearest();
+    if (k === 'k' && !vehicleState.occupied) tryCraftSword();
+    if (k === 'v') tryToggleVehicle();
+  });
+  window.addEventListener('keyup', e => { gameState.keys[e.key.toLowerCase()] = false; });
+  canvas.addEventListener('click', () => {
+    if (!gameState.tutorialDone) {
+      dismissTutorial();
+      return;
+    }
+    if (gameState.paused) return;
+    if (!gameState.mouseLocked) {
+      canvas.requestPointerLock();
+      return;
+    }
+    shootBeam();
+  });
+  tutorialOverlay.addEventListener('click', () => {
+    dismissTutorial();
+    canvas.requestPointerLock();
+  });
+  document.addEventListener('pointerlockchange', () => {
+    gameState.mouseLocked = document.pointerLockElement === canvas;
+  });
+  document.addEventListener('mousemove', e => {
+    if (!gameState.paused && gameState.mouseLocked && gameState.tutorialDone) {
+      gameState.mouseDX += e.movementX * 0.0020;
+      gameState.mouseDY += e.movementY * 0.0016;
+    }
+  });
+
+  // Cheats
+  cheatInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const code = cheatInput.value.trim().toLowerCase();
+      if (code === 'abysswyrm') {
+        gameState.pearls = REQUIRED_PEARLS;
+        pearlCountEl.textContent = REQUIRED_PEARLS;
+        if (!gameState.wyrmSpawned) {
+          gameState.wyrmSpawned = true;
+          spawnWyrm();
+        }
+        showToast('🐉 CHEAT: WYRM SUMMONED');
+      } else if (code === '100pearls') {
+        gameState.pearls = 100;
+        pearlCountEl.textContent = 100;
+        if (gameState.pearls >= 10) spawnDog();
+        showToast('🔮 Pearls → 100');
+      } else if (code === 'fullrep') {
+        gameState.reputation = 100;
+        repCountEl.textContent = 100;
+        repTitleEl.textContent = getRepTitle(100);
+        showToast('⭐ Reputation maxed');
+      } else if (code === 'fuelup') {
+        gameState.fuel = gameState.maxFuel;
+        gameState.coins += 20;
+        coinCountEl.textContent = gameState.coins;
+        updateFuelUI();
+        showToast('⛽ Fuel maxed');
+      } else if (code === 'allgems') {
+        gems.forEach(g => {
+          if (!g.userData.collected) {
+            g.userData.collected = true;
+            g.visible = false;
+            gameState.collectedGems++;
+          }
+        });
+        gemCountEl.textContent = gameState.collectedGems;
+        showToast('💎 All gems collected');
+      } else if (code === 'undying') {
+        gameState.undying = !gameState.undying;
+        if (gameState.undying) {
+          gameState.health = MAX_HEALTH;
+          updateHealthUI();
+          showToast('∞ Undying ON');
+        } else {
+          showToast('Undying OFF');
+        }
+      }
+      cheatInput.value = '';
+      cheatBox.style.display = 'none';
+    }
+  });
+
+  // Minimap
+  function updateMinimap() {
+    const size = 168, hs = size / 2, scale = 0.55;
+    const cx = gameState.charPos.x, cz = gameState.charPos.z;
+    minimapCtx.clearRect(0, 0, size, size);
+    minimapCtx.beginPath();
+    minimapCtx.arc(hs, hs, hs - 2, 0, Math.PI * 2);
+    minimapCtx.clip();
+    minimapCtx.fillStyle = '#070c18';
+    minimapCtx.fillRect(0, 0, size, size);
+
+    minimapCtx.fillStyle = '#40e0ff';
+    gems.forEach(g => {
+      if (g.userData.collected) return;
+      const mx = hs + (g.position.x - cx) * scale;
+      const mz = hs + (g.position.z - cz) * scale;
+      if (mx > 4 && mx < size - 4 && mz > 4 && mz < size - 4) {
+        minimapCtx.beginPath();
+        minimapCtx.arc(mx, mz, 2.2, 0, Math.PI * 2);
+        minimapCtx.fill();
+      }
+    });
+
+    minimapCtx.fillStyle = '#ff55cc';
+    voidWalkers.forEach(w => {
+      if (!w.userData.alive) return;
+      const mx = hs + (w.position.x - cx) * scale;
+      const mz = hs + (w.position.z - cz) * scale;
+      if (mx > 4 && mx < size - 4 && mz > 4 && mz < size - 4) {
+        minimapCtx.fillRect(mx - 1.5, mz - 1.5, 3, 3);
+      }
+    });
+
+    minimapCtx.fillStyle = '#ffd24a';
+    coins.forEach(c => {
+      if (c.userData.collected) return;
+      const mx = hs + (c.position.x - cx) * scale;
+      const mz = hs + (c.position.z - cz) * scale;
+      if (mx > 4 && mx < size - 4 && mz > 4 && mz < size - 4) {
+        minimapCtx.beginPath();
+        minimapCtx.arc(mx, mz, 1.8, 0, Math.PI * 2);
+        minimapCtx.fill();
+      }
+    });
+    minimapCtx.fillStyle = '#8a6230';
+    woodCubes.forEach(c => {
+      if (!c.userData.alive) return;
+      const mx = hs + (c.position.x - cx) * scale;
+      const mz = hs + (c.position.z - cz) * scale;
+      if (mx > 3 && mx < size - 3 && mz > 3 && mz < size - 3) {
+        minimapCtx.fillRect(mx - 1.6, mz - 1.6, 3.2, 3.2);
+      }
+    });
+    // Water holes / ponds (player-dug)
+    minimapCtx.fillStyle = '#2ab0e0';
+    waterHoles.forEach(h => {
+      const mx = hs + (h.x - cx) * scale;
+      const mz = hs + (h.z - cz) * scale;
+      if (mx > 3 && mx < size - 3 && mz > 3 && mz < size - 3) {
+        minimapCtx.beginPath();
+        minimapCtx.arc(mx, mz, 3.2, 0, Math.PI * 2);
+        minimapCtx.fill();
+      }
+    });
+    // v35 animals — wild dim, companions bright
+    const drawAnim = (a, bright) => {
+      const mx = hs + (a.position.x - cx) * scale;
+      const mz = hs + (a.position.z - cz) * scale;
+      if (mx > 3 && mx < size - 3 && mz > 3 && mz < size - 3) {
+        minimapCtx.fillStyle = bright ? '#90ee90' : '#4a7a4a';
+        minimapCtx.fillRect(mx - 1.4, mz - 1.4, 2.8, 2.8);
+      }
+    };
+    wildAnimals.forEach(a => drawAnim(a, false));
+    companions.forEach(a => drawAnim(a, true));
+
+    // Castle marker — distinct diamond so the eastern landmark is never lost
+    {
+      const mx = hs + (castleCenter.x - cx) * scale;
+      const mz = hs + (castleCenter.y - cz) * scale;
+      if (mx > 2 && mx < size - 2 && mz > 2 && mz < size - 2) {
+        minimapCtx.fillStyle = '#c0b090';
+        minimapCtx.beginPath();
+        minimapCtx.moveTo(mx, mz - 5);
+        minimapCtx.lineTo(mx + 4.5, mz);
+        minimapCtx.lineTo(mx, mz + 5);
+        minimapCtx.lineTo(mx - 4.5, mz);
+        minimapCtx.closePath();
+        minimapCtx.fill();
+        minimapCtx.strokeStyle = '#ffe8a0';
+        minimapCtx.lineWidth = 1.2;
+        minimapCtx.stroke();
+      }
+    }
+
+    // Car marker — larger + ring so it reads at a glance
+    {
+      const mx = hs + (car.position.x - cx) * scale;
+      const mz = hs + (car.position.z - cz) * scale;
+      if (mx > 3 && mx < size - 3 && mz > 3 && mz < size - 3) {
+        minimapCtx.fillStyle = '#4aa0ff';
+        minimapCtx.beginPath();
+        minimapCtx.arc(mx, mz, 3.5, 0, Math.PI * 2);
+        minimapCtx.fill();
+        minimapCtx.strokeStyle = '#a0d8ff';
+        minimapCtx.lineWidth = 1.5;
+        minimapCtx.stroke();
+      }
+    }
+    // v15: Ground dragon marker
+    if (groundDragonActive && groundDragon) {
+      const mx = hs + (groundDragon.position.x - cx) * scale;
+      const mz = hs + (groundDragon.position.z - cz) * scale;
+      if (mx > 2 && mx < size - 2 && mz > 2 && mz < size - 2) {
+        minimapCtx.fillStyle = '#ff4422';
+        minimapCtx.beginPath();
+        minimapCtx.arc(mx, mz, 4, 0, Math.PI * 2);
+        minimapCtx.fill();
+        minimapCtx.strokeStyle = '#ffaa66';
+        minimapCtx.lineWidth = 1.5;
+        minimapCtx.stroke();
+      }
+    }
+
+    minimapCtx.fillStyle = '#ffffff';
+    minimapCtx.beginPath();
+    minimapCtx.arc(hs, hs, 3.5, 0, Math.PI * 2);
+    minimapCtx.fill();
+    minimapCtx.strokeStyle = '#a0e0ff';
+    minimapCtx.lineWidth = 2;
+    minimapCtx.beginPath();
+    minimapCtx.moveTo(hs, hs);
+    minimapCtx.lineTo(hs + Math.sin(gameState.yaw) * 10, hs + Math.cos(gameState.yaw) * 10);
+    minimapCtx.stroke();
+  }
+
+  // Auto-aim at Void Walkers (predictive)
+  function findAutoAimTarget() {
+    const forward = new THREE.Vector3(Math.sin(gameState.yaw), 0, Math.cos(gameState.yaw)).normalize();
+    const origin = gameState.charPos.clone().add(new THREE.Vector3(0, 1.55, 0));
+    let best = null;
+    let bestScore = Infinity;
+    const maxCos = Math.cos(THREE.MathUtils.degToRad(AUTO_AIM_ANGLE));
+
+    for (const w of voidWalkers) {
+      if (!w.userData.alive) continue;
+      const targetPos = w.position.clone().add(new THREE.Vector3(0, 1.8, 0));
+      const toEnemy = targetPos.clone().sub(origin);
+      const dist = toEnemy.length();
+      if (dist > AUTO_AIM_RANGE) continue;
+
+      const timeToHit = dist / PROJECTILE_SPEED;
+      const predicted = targetPos.clone().add(w.userData.velocity.clone().multiplyScalar(timeToHit));
+      const predDir = predicted.clone().sub(origin).normalize();
+      const dot = forward.dot(predDir);
+      if (dot < maxCos) continue;
+
+      const score = dist + (1 - dot) * 18;
+      if (score < bestScore) {
+        bestScore = score;
+        best = predicted;
+      }
+    }
+    return best;
+  }
+
+  const projectileGeo = new THREE.SphereGeometry(0.18, 6, 6);
+  let lastShotTime = 0;
+  function shootBeam() {
+    if (gameState.stunTimer > 0) return;
+    const now = performance.now();
+    if (now - lastShotTime < 280) return;
+    lastShotTime = now;
+    sfx.shoot();
+
+    let origin, yaw, pitch;
+    if (vehicleState.occupied) {
+      origin = car.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+      yaw = vehicleState.yaw;
+      pitch = (wyrmActive || groundDragonActive) ? gameState.pitch : 0;
+    } else {
+      origin = gameState.charPos.clone().add(new THREE.Vector3(0, 1.55, 0));
+      yaw = gameState.yaw;
+      pitch = gameState.pitch;
+    }
+
+    const pitchedDir = new THREE.Vector3(
+      Math.sin(yaw) * Math.cos(pitch),
+      Math.sin(pitch),
+      Math.cos(yaw) * Math.cos(pitch)
+    ).normalize();
+
+    let aimDir;
+    if (wyrmActive || groundDragonActive) {
+      // Free aim while either dragon is live
+      aimDir = pitchedDir;
+    } else {
+      const autoTarget = findAutoAimTarget();
+      if (autoTarget) {
+        aimDir = autoTarget.clone().sub(origin).normalize();
+      } else {
+        aimDir = pitchedDir;
+      }
+    }
+    const proj = new THREE.Mesh(
+      projectileGeo,
+      new THREE.MeshBasicMaterial({ color: 0x55ccff })
+    );
+    proj.position.copy(origin);
+    proj.userData = { vel: aimDir.multiplyScalar(PROJECTILE_SPEED), life: 0 };
+    scene.add(proj);
+    projectiles.push(proj);
+    for (let i = 0; i < (quality >= 1 ? 4 : 2); i++) spawnParticle(origin, 0x66ddff, 0.3);
+  }
+
+  // Animation loop
+  const clock = new THREE.Clock();
+  // Scratch vectors reused every frame instead of allocating new THREE.Vector3()/.clone() 60 times/sec —
+  // same math, just written in place. Safe because nothing here needs to persist a vector across frames.
+  const _forward = new THREE.Vector3();
+  const _right = new THREE.Vector3();
+  const _camOffset = new THREE.Vector3();
+  const _camTarget = new THREE.Vector3();
+  const _lookAt = new THREE.Vector3();
+  const _walkerOld = new THREE.Vector3();
+  const _toPlayer = new THREE.Vector3();
+
+  function animate(ts) {
+    requestAnimationFrame(animate);
+    const dt = Math.min(clock.getDelta(), 0.12);
+    skyMat.uniforms.uTime.value = ts * 0.001;
+
+    if (gameState.paused || !gameState.tutorialDone) {
+      renderer.render(scene, camera);
+      return;
+    }
+
+    // Cooldowns + v15 escalation clock
+    gameState.playTime = (gameState.playTime || 0) + dt;
+    if (gameState.escalationTimer === undefined) gameState.escalationTimer = 45;
+    gameState.escalationTimer -= dt;
+    if (gameState.escalationTimer <= 0) tryEscalationSpawn();
+
+    if (gameState.chopCooldown > 0) gameState.chopCooldown -= dt;
+    if (gameState.buildCooldown > 0) gameState.buildCooldown -= dt;
+    if (gameState.axeSwing > 0) gameState.axeSwing -= dt;
+    if (digCooldown > 0) digCooldown -= dt;
+    if (cubeCooldown > 0) cubeCooldown -= dt;
+    if (gameState.invulnTimer > 0) gameState.invulnTimer -= dt;
+    if (gameState.stunTimer > 0) gameState.stunTimer -= dt;
+    if (gameState.healthRecoverAt > 0) {
+      gameState.healthRecoverAt -= dt;
+      if (gameState.healthRecoverAt <= 0 && gameState.health <= 0) {
+        gameState.health = 1;
+        updateHealthUI();
+        gameState.invulnTimer = Math.max(gameState.invulnTimer, 1.8);
+        showToast('Recovered — brief invulnerability');
+      }
+    }
+    if (gameState.camKick > 0) gameState.camKick -= dt;
+
+
+    // Mouse look → yaw + pitch (so you can aim up at the flying dragon)
+    if (gameState.mouseLocked) {
+      gameState.yaw -= gameState.mouseDX * 3.6;
+      gameState.pitch -= gameState.mouseDY * 2.8;
+      gameState.pitch = Math.max(-0.9, Math.min(1.2, gameState.pitch));
+      gameState.mouseDX *= 0.14;
+      gameState.mouseDY *= 0.14;
+    }
+
+    // ===== VEHICLE vs ON-FOOT =====
+    if (vehicleState.occupied) {
+      // Drive by camera direction: vehicle yaw follows look yaw
+      let yawDiff = gameState.yaw - vehicleState.yaw;
+      while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+      while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+      vehicleState.yaw += yawDiff * Math.min(1, 4.5 * dt);
+
+      let throttle = 0, steerInput = 0;
+      if (gameState.keys['w'] || gameState.keys['arrowup']) throttle += 1;
+      if (gameState.keys['s'] || gameState.keys['arrowdown']) throttle -= 0.55;
+      // A = left, D = right (strafe/steer)
+      if (gameState.keys['a'] || gameState.keys['arrowleft']) steerInput -= 1;
+      if (gameState.keys['d'] || gameState.keys['arrowright']) steerInput += 1;
+      vehicleState.yaw += steerInput * 1.4 * dt;
+      const boosting = !!(gameState.keys['shift'] && throttle > 0);
+      const handbrake = !!gameState.keys[' '];
+
+      const maxSp = vehicleState.maxSpeed * (boosting ? vehicleState.boostMult : 1);
+      const accel = throttle * 28 * dt;
+      vehicleState.speed += accel;
+      if (throttle === 0) vehicleState.speed *= Math.pow(0.12, dt);
+      if (handbrake) vehicleState.speed *= Math.pow(0.02, dt);
+      vehicleState.speed = Math.max(-maxSp * 0.4, Math.min(maxSp, vehicleState.speed));
+
+      const moveDist = vehicleState.speed * dt;
+      if (gameState.postBossLapDone && gameState.wanderType === 'drive') {
+        gameState.wanderDriveAcc += Math.abs(moveDist);
+        const travelled = Math.floor(gameState.wanderDriveAcc);
+        if (travelled !== gameState.wanderHave) {
+          gameState.wanderHave = travelled;
+          noteWander('drive', 0);
+        }
+      }
+      car.position.x += Math.sin(vehicleState.yaw) * moveDist;
+      car.position.z += Math.cos(vehicleState.yaw) * moveDist;
+      car.position.x = Math.max(-90, Math.min(90, car.position.x));
+      car.position.z = Math.max(-90, Math.min(90, car.position.z));
+
+      const gy = groundYAt(car.position.x, car.position.z, car.position.y);
+      car.position.y = THREE.MathUtils.lerp(car.position.y, gy + 0.12, Math.min(1, 22 * dt));
+      car.rotation.y = vehicleState.yaw;
+      // body lean
+      car.rotation.z = THREE.MathUtils.lerp(car.rotation.z, -steerInput * 0.12 * Math.min(1, Math.abs(vehicleState.speed) / 12), 0.15);
+      car.rotation.x = THREE.MathUtils.lerp(car.rotation.x, throttle * 0.04, 0.12);
+      // wheels spin
+      carWheels.forEach(w => { w.rotation.x += vehicleState.speed * dt * 1.8; });
+
+      // Fuel drain
+      if (Math.abs(vehicleState.speed) > 0.4 || throttle !== 0) {
+        const drain = boosting ? vehicleState.fuelDrainBoost : vehicleState.fuelDrainMove;
+        gameState.fuel = Math.max(0, gameState.fuel - drain * dt);
+        updateFuelUI();
+        if (gameState.fuel <= 0) {
+          vehicleState.speed = 0;
+          exitVehicle(true);
+        }
+      }
+      // Dust particles when accelerating
+      vehicleState.dustTimer -= dt;
+      if (Math.abs(vehicleState.speed) > 4 && vehicleState.dustTimer <= 0) {
+        vehicleState.dustTimer = 0.07;
+        const back = new THREE.Vector3(-Math.sin(vehicleState.yaw) * 1.6, 0.2, -Math.cos(vehicleState.yaw) * 1.6).add(car.position);
+        spawnParticle(back, 0xc8a878, 0.55);
+      }
+
+      gameState.charPos.copy(car.position);
+      // Chase camera
+      const camDist = 14.5;
+      _camOffset.set(
+        -Math.sin(vehicleState.yaw) * camDist,
+        5.2,
+        -Math.cos(vehicleState.yaw) * camDist
+      );
+      camera.position.lerp(_camTarget.copy(car.position).add(_camOffset), 0.14);
+      _lookAt.set(
+        Math.sin(vehicleState.yaw) * 10,
+        1.2,
+        Math.cos(vehicleState.yaw) * 10
+      ).add(car.position);
+      camera.lookAt(_lookAt);
+
+      // Post-boss lap tracking
+      if (gameState.postBossActive && !gameState.postBossLapDone) {
+        const ang = Math.atan2(car.position.x - castleCenter.x, car.position.z - castleCenter.y);
+        let dAng = ang - gameState.postBossLastAngle;
+        while (dAng > Math.PI) dAng -= Math.PI * 2;
+        while (dAng < -Math.PI) dAng += Math.PI * 2;
+        gameState.postBossAngleAccum += dAng;
+        gameState.postBossLastAngle = ang;
+        updateObjectiveProgress();
+        if (Math.abs(gameState.postBossAngleAccum) >= Math.PI * 2 && gameState.coins >= gameState.postBossCoinsNeeded) {
+          gameState.postBossLapDone = true;
+          applyArmorUpgrade();
+          updateObjectiveProgress();
+          showToast('🏁 Lap complete! Armor unlocked — explore freely');
+          addReputation(15);
+        }
+      }
+    } else {
+      // On-foot movement — A left, D right
+      // v13: detect standing in dug water for slow + bob + ripples
+      let inWater = false;
+      let nearestWater = null;
+      for (const h of waterHoles) {
+        const wd = Math.hypot(gameState.charPos.x - h.x, gameState.charPos.z - h.z);
+        if (wd < 3.2) { inWater = true; nearestWater = h; break; }
+      }
+      if (gameState.stunTimer <= 0) {
+      _forward.set(Math.sin(gameState.yaw), 0, Math.cos(gameState.yaw));
+      _right.set(Math.cos(gameState.yaw), 0, -Math.sin(gameState.yaw));
+      let moveF = 0, moveR = 0;
+      if (gameState.keys['w']) moveF += 1;
+      if (gameState.keys['s']) moveF -= 1;
+      if (gameState.keys['a']) moveR -= 1;
+      if (gameState.keys['d']) moveR += 1;
+      const run = gameState.keys['shift'] ? RUN_MULT : 1;
+      const waterMult = inWater ? 0.6 : 1.0;
+      const speed = MOVE_SPEED * run * waterMult * dt;
+      gameState.charPos.addScaledVector(_forward, moveF * speed);
+      gameState.charPos.addScaledVector(_right, moveR * speed);
+      }
+
+      gameState.velocityY -= GRAVITY * dt;
+      gameState.charPos.y += gameState.velocityY * dt;
+      let groundY = groundYAt(gameState.charPos.x, gameState.charPos.z, gameState.charPos.y);
+      if (gameState.charPos.y <= groundY + 0.08) {
+        // Tight ground contact on slopes
+        gameState.charPos.y = THREE.MathUtils.lerp(gameState.charPos.y, groundY, Math.min(1, 28 * dt));
+        if (gameState.charPos.y <= groundY + 0.02) gameState.charPos.y = groundY;
+        gameState.velocityY = 0;
+        gameState.grounded = true;
+        if (gameState.keys[' '] && gameState.stunTimer <= 0) {
+          gameState.velocityY = JUMP_FORCE * (inWater ? 0.85 : 1.0);
+          gameState.grounded = false;
+        }
+      } else {
+        gameState.grounded = false;
+        // v11: stronger downward bias when hovering just above a castle floor
+        const cyOnly = getCastleY(gameState.charPos.x, gameState.charPos.z);
+        if (cyOnly !== null && gameState.charPos.y > cyOnly && gameState.charPos.y < cyOnly + 0.55 && gameState.velocityY > -3) {
+          gameState.velocityY = Math.min(gameState.velocityY, -4.8);
+        }
+      }
+
+      gameState.charPos.x = Math.max(-90, Math.min(90, gameState.charPos.x));
+      gameState.charPos.z = Math.max(-90, Math.min(90, gameState.charPos.z));
+
+      const isMoving = gameState.stunTimer <= 0 && (gameState.keys['w'] || gameState.keys['s'] || gameState.keys['a'] || gameState.keys['d']);
+      gameState.bobPhase += dt * (isMoving ? 9.5 : 2.2);
+
+      character.position.copy(gameState.charPos);
+      // v13: extra subtle vertical bob when in water (feels liquid underfoot)
+      const waterBob = inWater ? Math.sin(ts * 0.008) * 0.06 : 0;
+      character.position.y += Math.sin(gameState.bobPhase) * 0.05 * (isMoving ? 1 : 0.15) + waterBob;
+      character.rotation.y = gameState.yaw;
+      // Occasional cyan ripple particles while standing/moving in water
+      if (inWater && nearestWater && Math.random() < (isMoving ? 0.12 : 0.04)) {
+        const rx = nearestWater.x + (Math.random() - 0.5) * 2.4;
+        const rz = nearestWater.z + (Math.random() - 0.5) * 2.4;
+        spawnParticle(new THREE.Vector3(rx, terrainHeight(rx, rz) + 0.15, rz), 0x44ccee, 0.45);
+      }
+
+      const swing = isMoving ? Math.sin(gameState.bobPhase) * 0.65 : 0;
+      const damp = Math.min(1, 10 * dt);
+      character.userData.leftArmPivot.rotation.x  = THREE.MathUtils.lerp(character.userData.leftArmPivot.rotation.x,  swing, damp);
+      const axeTarget = gameState.axeSwing > 0 ? -1.6 + Math.sin((0.45 - gameState.axeSwing) * 14) * 0.9 : -swing;
+      character.userData.rightArmPivot.rotation.x = THREE.MathUtils.lerp(character.userData.rightArmPivot.rotation.x, axeTarget, damp);
+      character.userData.leftLegPivot.rotation.x  = THREE.MathUtils.lerp(character.userData.leftLegPivot.rotation.x, -swing, damp);
+      character.userData.rightLegPivot.rotation.x = THREE.MathUtils.lerp(character.userData.rightLegPivot.rotation.x,  swing, damp);
+
+      const camDist = 13.0;
+      const lookY = Math.sin(gameState.pitch);
+      const lookXZ = Math.cos(gameState.pitch);
+      _camOffset.set(
+        -Math.sin(gameState.yaw) * lookXZ * camDist,
+        3.3 - lookY * 4.8 + Math.sin(gameState.bobPhase * 0.4) * 0.06,
+        -Math.cos(gameState.yaw) * lookXZ * camDist
+      );
+      camera.position.lerp(_camTarget.copy(gameState.charPos).add(_camOffset), 0.22);
+      _lookAt.set(
+        Math.sin(gameState.yaw) * lookXZ * 8,
+        1.5 + lookY * 14,
+        Math.cos(gameState.yaw) * lookXZ * 8
+      ).add(gameState.charPos);
+      camera.lookAt(_lookAt);
+
+      // Near-car prompt + fuel onboarding (v14: wider detect + fuel-bar pulse + underglow when empty)
+      const distCar = gameState.charPos.distanceTo(car.position);
+      if (distCar < 8) {
+        if (!gameState.firstCarNear) {
+          gameState.firstCarNear = true;
+          if (gameState.fuel <= 0) {
+            showToast('Collect gold coins to fuel the car (V to enter)');
+          } else {
+            showToast('Press V to drive');
+          }
+        }
+        if (gameState.fuel <= 0 && !vehicleState.occupied) {
+          carHintEl.style.display = 'block';
+          fuelBarFill.classList.add('pulse');
+          // Soft underglow pulse so the car itself signals "needs fuel"
+          underglow.material.emissiveIntensity = 0.4 + Math.sin(ts * 0.006) * 0.35;
+        } else {
+          carHintEl.style.display = 'none';
+          fuelBarFill.classList.remove('pulse');
+          underglow.material.emissiveIntensity = 0.7;
+        }
+      } else {
+        carHintEl.style.display = 'none';
+        fuelBarFill.classList.remove('pulse');
+        underglow.material.emissiveIntensity = 0.7;
+      }
+    }
+
+    // Dog follows
+    updateCompanions(dt);
+    updatePenBuilders(dt);
+
+    // Shooting (F key; LMB also via click handler)
+    if (gameState.keys['f']) shootBeam();
+
+    // Projectiles
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      const p = projectiles[i];
+      p.userData.life += dt;
+      p.position.addScaledVector(p.userData.vel, dt);
+      if (p.userData.life > 2.3) {
+        scene.remove(p);
+        projectiles.splice(i, 1);
+        continue;
+      }
+      for (const w of voidWalkers) {
+        if (!w.userData.alive) continue;
+        if (p.position.distanceTo(w.position) < 2.15) {
+          w.userData.health -= gameState.hasSword ? 2 : 1;
+          sfx.hit();
+          spawnParticle(p.position, 0xff66ee, 0.7);
+          for (let k = 0; k < 5; k++) spawnParticle(p.position, 0xff88ff, 0.45);
+          w.scale.set(1.18, 1.18, 1.18);
+          setTimeout(() => { if (w.userData.alive) w.scale.set(1, 1, 1); }, 90);
+          w.children.forEach(c => {
+            if (c.material && c.material.color) {
+              const old = c.material.color.getHex();
+              c.material.color.set(0xff4444);
+              setTimeout(() => { if (c.material) c.material.color.set(old); }, 140);
+            }
+          });
+          scene.remove(p);
+          projectiles.splice(i, 1);
+          if (w.userData.health <= 0) {
+            w.userData.alive = false;
+            w.visible = false;
+            gameState.pearls++;
+            pearlCountEl.textContent = gameState.pearls;
+            noteWander('hunt', 1);
+            addReputation(4);
+            flashPickup();
+            for (let k = 0; k < (quality >= 1 ? 18 : 8); k++) spawnParticle(w.position, 0xcc44ff, 0.95);
+            sfx.pearl();
+            showToast('+1 Pearl');
+            updateObjectiveProgress();
+            if (gameState.pearls >= 10) spawnDog();
+            if (gameState.pearls >= REQUIRED_PEARLS && !gameState.wyrmSpawned) {
+              gameState.wyrmSpawned = true;
+              spawnWyrm();
+            }
+            if (gameState.wyrmDefeated && !wyrmActive) {
+              gameState.postDefeatKills++;
+              if (gameState.postDefeatKills >= 3) {
+                gameState.postDefeatKills = 0;
+                spawnWyrm();
+                showToast('🐉 The Wyrm rises again!');
+                setObjective('Defeat the returning Abyssal Wyrm — free aim active');
+              }
+            }
+            // v14: after armor, night respawns come a bit faster (still soft, no new system)
+            const postSlice = gameState.postBossLapDone;
+            const night = Math.sin(gameState.sunAngle) < 0.25;
+            const baseDelay = (postSlice && night) ? 1600 : 2500;
+            const jitter = (postSlice && night) ? 1400 : 2000;
+            setTimeout(() => respawnVoidWalker(), baseDelay + Math.random() * jitter);
+          }
+          break;
+        }
+      }
+      if (wyrmActive && wyrm && p.position.distanceTo(wyrm.position) < 5.5) {
+        damageWyrm(gameState.hasSword ? 4 : 2);
+        sfx.bossHit();
+        spawnParticle(p.position, 0xaa55ff, 0.55);
+        for (let k = 0; k < 6; k++) spawnParticle(p.position, 0xcc66ff, 0.5);
+        wyrm.scale.set(1.12, 1.12, 1.12);
+        setTimeout(() => { if (wyrm) wyrm.scale.set(1, 1, 1); }, 100);
+        scene.remove(p);
+        projectiles.splice(i, 1);
+        continue;
+      }
+      if (groundDragonActive && groundDragon && p.position.distanceTo(groundDragon.position) < 4.8) {
+        damageGroundDragon(gameState.hasSword ? 4 : 2);
+        sfx.bossHit();
+        spawnParticle(p.position, 0xff6622, 0.55);
+        for (let k = 0; k < 5; k++) spawnParticle(p.position, 0xff8844, 0.45);
+        groundDragon.scale.set(1.1, 1.1, 1.1);
+        setTimeout(() => { if (groundDragon) groundDragon.scale.set(1, 1, 1); }, 100);
+        scene.remove(p);
+        projectiles.splice(i, 1);
+      }
+    }
+
+    // v15: fire-breath bolts from either dragon
+    const playerRefFire = vehicleState.occupied ? car.position : gameState.charPos;
+    for (let i = fireProjectiles.length - 1; i >= 0; i--) {
+      const fp = fireProjectiles[i];
+      fp.userData.life += dt;
+      fp.position.addScaledVector(fp.userData.vel, dt);
+      fp.userData.vel.y -= 4 * dt;
+      if (fp.userData.life > 2.0) {
+        scene.remove(fp);
+        fireProjectiles.splice(i, 1);
+        continue;
+      }
+      damageCubesNear(fp.position, 1.6);
+      if (fp.position.distanceTo(playerRefFire) < 2.2) {
+        takeDamage(1, fp.position);
+        for (let k = 0; k < 6; k++) spawnParticle(fp.position, 0xff4422, 0.5);
+        scene.remove(fp);
+        fireProjectiles.splice(i, 1);
+      }
+    }
+
+    // Particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.userData.life -= dt;
+      p.position.addScaledVector(p.userData.vel, dt);
+      p.userData.vel.y -= 6 * dt;
+      p.material.opacity = Math.max(0, p.userData.life / p.userData.maxLife);
+      if (p.userData.life <= 0) {
+        scene.remove(p);
+        particles.splice(i, 1);
+      }
+    }
+
+    // Void Walker AI — tighter wander, campfire repulsion, contact damage
+    voidWalkers.forEach(w => {
+      if (!w.userData.alive) return;
+      _walkerOld.copy(w.position);
+      if (w.userData.lungeTimer === undefined) {
+        w.userData.lungeTimer = 0;
+        w.userData.lungeCooldown = 0;
+        w.userData.aggroFlash = 0;
+      }
+      w.userData.lungeCooldown = Math.max(0, w.userData.lungeCooldown - dt);
+      w.userData.lungeTimer = Math.max(0, w.userData.lungeTimer - dt);
+      w.userData.aggroFlash = Math.max(0, w.userData.aggroFlash - dt);
+
+      const playerRef = vehicleState.occupied ? car.position : gameState.charPos;
+      _toPlayer.copy(playerRef).sub(w.position);
+      const dist = _toPlayer.length();
+
+      let repelled = false;
+      for (const c of camps) {
+        const cdx = w.position.x - c.position.x;
+        const cdz = w.position.z - c.position.z;
+        const cd = Math.hypot(cdx, cdz);
+        if (cd < 9 && cd > 0.1) {
+          w.userData.velocity.x += (cdx / cd) * 5.5;
+          w.userData.velocity.z += (cdz / cd) * 5.5;
+          repelled = true;
+        }
+      }
+      // v32: wood cubes block walkers (they cannot smash them)
+      for (const cube of woodCubes) {
+        if (!cube.userData.alive) continue;
+        const cdx = w.position.x - cube.position.x;
+        const cdz = w.position.z - cube.position.z;
+        const cd = Math.hypot(cdx, cdz);
+        if (cd < 1.7 && cd > 0.05) {
+          const force = (1.7 - cd) / 1.7 * 8.5;
+          w.userData.velocity.x += (cdx / cd) * force;
+          w.userData.velocity.z += (cdz / cd) * force;
+          repelled = true;
+        }
+      }
+      // v12: player-dug water holes + connected pond bridges act as soft barriers for Void Walkers
+      for (const h of waterHoles) {
+        const wdx = w.position.x - h.x;
+        const wdz = w.position.z - h.z;
+        const wd = Math.hypot(wdx, wdz);
+        if (wd < 3.4 && wd > 0.05) {
+          const force = (3.4 - wd) / 3.4 * 7.2;
+          w.userData.velocity.x += (wdx / wd) * force;
+          w.userData.velocity.z += (wdz / wd) * force;
+          repelled = true;
+        }
+        for (const br of h.connected) {
+          if (!br || !br.position) continue;
+          const bdx = w.position.x - br.position.x;
+          const bdz = w.position.z - br.position.z;
+          const bd = Math.hypot(bdx, bdz);
+          if (bd < 2.6 && bd > 0.05) {
+            const force = (2.6 - bd) / 2.6 * 6.0;
+            w.userData.velocity.x += (bdx / bd) * force;
+            w.userData.velocity.z += (bdz / bd) * force;
+            repelled = true;
+          }
+        }
+      }
+
+      // v14: post-slice night pressure — slightly longer lunge range + more frequent lunges, same AI shape
+      const postSliceNight = gameState.postBossLapDone && Math.sin(gameState.sunAngle) < 0.25;
+      const lungeRange = postSliceNight ? 14.5 : 11;
+      const approachRange = postSliceNight ? 40 : 32;
+      const lungeCD = postSliceNight ? (2.6 + Math.random() * 1.2) : (3.8 + Math.random() * 1.5);
+
+      if (w.userData.lungeTimer > 0) {
+        _toPlayer.normalize().multiplyScalar(9.5);
+        w.userData.velocity.copy(_toPlayer);
+      } else if (!repelled && dist < lungeRange && w.userData.lungeCooldown <= 0) {
+        w.userData.aggroFlash = 0.35;
+        w.userData.lungeTimer = 1.15;
+        w.userData.lungeCooldown = lungeCD;
+        w.children.forEach(c => {
+          if (c.material && c.material.color) {
+            const old = c.material.color.getHex();
+            c.material.color.set(0xff2266);
+            setTimeout(() => { if (c.material) c.material.color.set(old); }, 280);
+          }
+        });
+      } else if (!repelled) {
+        w.userData.changeTimer -= dt;
+        if (w.userData.changeTimer <= 0) {
+          if (dist < approachRange) {
+            _toPlayer.normalize().multiplyScalar(postSliceNight ? 4.2 : 3.6);
+            w.userData.velocity.copy(_toPlayer);
+          } else {
+            w.userData.wanderAngle += (Math.random() - 0.5) * 1.1;
+            w.userData.velocity.set(
+              Math.sin(w.userData.wanderAngle) * 2.2, 0,
+              Math.cos(w.userData.wanderAngle) * 2.2
+            );
+          }
+          w.userData.changeTimer = 1.1 + Math.random() * 1.8;
+        }
+      }
+      w.position.x += w.userData.velocity.x * dt;
+      w.position.z += w.userData.velocity.z * dt;
+      w.position.y = terrainHeight(w.position.x, w.position.z) + Math.sin(ts * 0.002 + w.userData.phase) * 0.12;
+      if (w.userData.velocity.lengthSq() > 0.01) {
+        w.rotation.y = Math.atan2(w.userData.velocity.x, w.userData.velocity.z);
+      }
+      w.userData.velocity.subVectors(w.position, _walkerOld).divideScalar(Math.max(dt, 0.001));
+      if (w.userData.lungeTimer > 0.6) w.scale.setScalar(1.08);
+      else w.scale.setScalar(1);
+
+      if (dist < 2.4 && gameState.invulnTimer <= 0) {
+        takeDamage(1, w.position, { walker: true });
+      }
+    });
+
+    // Gems
+    gems.forEach(g => {
+      if (g.userData.collected) return;
+      g.position.y = g.userData.baseY + Math.sin(ts * 0.0025 + g.userData.phase) * 0.28;
+      g.rotation.y += dt * 1.4;
+      g.rotation.x = Math.sin(ts * 0.001 + g.userData.phase) * 0.2;
+      if (g.position.distanceTo(gameState.charPos) < 2.0) {
+        g.userData.collected = true;
+        g.visible = false;
+        gameState.collectedGems++;
+        gemCountEl.textContent = gameState.collectedGems;
+        noteWander('gems', 1);
+        addReputation(2);
+        for (let k = 0; k < 8; k++) spawnParticle(g.position, 0x66eeff, 0.5);
+        sfx.collect();
+        showToast('💎 Resonance Gem');
+      }
+    });
+
+    // ===== v36 Collectible rocks (player pickup) =====
+    collectibleRocks.forEach(r => {
+      if (r.userData.collected) return;
+      r.position.y = r.userData.baseY + Math.sin(ts * 0.002 + r.userData.phase) * 0.12;
+      r.rotation.y += dt * 0.8;
+      const ref = vehicleState.occupied ? car.position : gameState.charPos;
+      if (r.position.distanceTo(ref) < 2.0) {
+        r.userData.collected = true;
+        r.visible = false;
+        gameState.rocks = (gameState.rocks || 0) + 1;
+        rockCountEl.textContent = gameState.rocks;
+        if (!gameState.dogUnlocked && gameState.rocks >= 10) {
+          gameState.dogUnlocked = true;
+          showToast('🐕 Dogs will trust you — find one to capture');
+        }
+        sfx.collect();
+        showToast('+1 Rock');
+        for (let k = 0; k < 4; k++) spawnParticle(r.position, 0x99aacc, 0.4);
+      }
+    });
+
+    // ===== Coins (fuel) =====
+    coins.forEach(c => {
+      if (c.userData.collected) return;
+      c.position.y = c.userData.baseY + Math.sin(ts * 0.003 + c.userData.phase) * 0.22;
+      c.rotation.y += dt * 2.4;
+      c.rotation.x = Math.sin(ts * 0.002 + c.userData.phase) * 0.3;
+      const refPos = vehicleState.occupied ? car.position : gameState.charPos;
+      if (c.position.distanceTo(refPos) < 2.3) {
+        c.userData.collected = true;
+        c.visible = false;
+        gameState.coins++;
+        coinCountEl.textContent = gameState.coins;
+        noteWander('coins', 1);
+        gameState.fuel = Math.min(gameState.maxFuel, gameState.fuel + gameState.fuelPerCoin);
+        updateFuelUI();
+        for (let k = 0; k < 7; k++) spawnParticle(c.position, 0xffd24a, 0.55);
+        sfx.coin();
+        showToast('+1 Coin');
+        if (!gameState.firstCoin) {
+          gameState.firstCoin = true;
+          setTimeout(() => {
+            showToast('Coins fuel the car');
+            fuelBarFill.classList.add('pulse');
+            fuelCountEl.style.transform = 'scale(1.35)';
+            fuelCountEl.style.color = '#ffd24a';
+            setTimeout(() => {
+              fuelBarFill.classList.remove('pulse');
+              fuelCountEl.style.transform = '';
+              fuelCountEl.style.color = '';
+            }, 1100);
+          }, 400);
+        }
+        if (gameState.postBossActive) updateObjectiveProgress();
+      }
+    });
+
+    // ===== Collectible Abyssal Shards (dragon scales) =====
+    scalesDrops.forEach(s => {
+      if (s.userData.collected) return;
+      s.position.y = s.userData.baseY + Math.sin(ts * 0.0028 + s.userData.phase) * 0.25;
+      s.rotation.y += dt * 1.6;
+      if (s.position.distanceTo(gameState.charPos) < 2.1) {
+        s.userData.collected = true;
+        s.visible = false;
+        gameState.scales++;
+        scaleCountEl.textContent = gameState.scales;
+        flashPickup();
+        for (let k = 0; k < (quality >= 1 ? 10 : 4); k++) spawnParticle(s.position, 0xffaa44, 0.7);
+        sfx.collect();
+        showToast('Dragon Scale acquired');
+      }
+    });
+
+    // Campfire ember flicker (stronger at night)
+    camps.forEach(c => {
+      const flicker = 0.85 + Math.sin(ts * 0.008 + c.position.x) * 0.25;
+      const nightBoost = Math.max(0, -Math.sin(gameState.sunAngle)) * 1.2;
+      const base = quality === 0 ? 0.6 : c.userData.baseIntensity;
+      c.userData.light.intensity = base * flicker + nightBoost;
+      c.userData.ember.scale.setScalar(0.9 + flicker * 0.2);
+    });
+
+    // Ambient orbs / spores — keep a soft pass even on Low so the world never feels dead
+    orbGroup.children.forEach((orb, oi) => {
+      const ud = orb.userData;
+      orb.position.y = ud.baseY + Math.sin(ts * 0.001 * ud.speed + ud.phase) * ud.amp;
+      orb.rotation.y += dt * 0.4;
+      // Low quality: keep meshes visible; occasional sparkle particles
+      if (quality === 0 && oi % 11 === 0 && Math.random() < 0.02) {
+        spawnParticle(orb.position, 0x88e0c0, 0.45);
+      }
+    });
+
+    // Flying dragon — banking + fire breath (v15)
+    if (wyrmActive && wyrm) {
+      if (wyrm.userData.divePhase === undefined) wyrm.userData.divePhase = 0;
+      if (wyrm.userData.fireCD === undefined) wyrm.userData.fireCD = 1.5;
+      wyrm.userData.flyAngle += dt * 0.28;
+      wyrm.userData.divePhase += dt * 0.55;
+      const ang = wyrm.userData.flyAngle;
+      const dive = Math.sin(wyrm.userData.divePhase) * 10;
+      const radius = 38 + Math.sin(ang * 0.7) * 6;
+      const target = new THREE.Vector3(
+        castleCenter.x + Math.cos(ang) * radius,
+        42 + Math.sin(ang * 1.35) * 11 + dive * 0.35,
+        castleCenter.y + Math.sin(ang) * radius
+      );
+      wyrm.position.lerp(target, 0.055);
+      wyrm.rotation.y = ang + Math.PI / 2;
+      wyrm.rotation.x = Math.sin(ang * 1.8) * 0.18 + Math.sin(wyrm.userData.divePhase) * 0.12;
+      wyrm.rotation.z = Math.sin(ang * 1.1) * 0.22;
+      const flap = Math.sin(ts * 0.007) * 0.48;
+      wyrmWings.forEach(w => {
+        w.pivot.rotation.z = w.baseRotZ + flap * w.side;
+        w.pivot.rotation.x = Math.sin(ts * 0.006 + w.side) * 0.12;
+      });
+      // Fire breath toward player
+      damageCubesNear(wyrm.position, 5.2);
+      wyrm.userData.fireCD -= dt;
+      if (wyrm.userData.fireCD <= 0) {
+        wyrm.userData.fireCD = FIRE_BREATH_COOLDOWN + Math.random() * 0.8;
+        const origin = wyrm.position.clone().add(new THREE.Vector3(0, -0.5, 0));
+        const aim = (vehicleState.occupied ? car.position : gameState.charPos).clone();
+        aim.y += 1.2;
+        spawnFireBreath(origin, aim, false);
+      }
+    }
+
+    // v15: Ground dragon — pursues player on terrain + fire breath
+    if (groundDragonActive && groundDragon) {
+      const pref = vehicleState.occupied ? car.position : gameState.charPos;
+      const dx = pref.x - groundDragon.position.x;
+      const dz = pref.z - groundDragon.position.z;
+      const dist = Math.hypot(dx, dz);
+      const spd = groundDragon.userData.speed || 7.2;
+      if (dist > 2.5) {
+        groundDragon.position.x += (dx / dist) * spd * dt;
+        groundDragon.position.z += (dz / dist) * spd * dt;
+      }
+      groundDragon.position.x = Math.max(-90, Math.min(90, groundDragon.position.x));
+      groundDragon.position.z = Math.max(-90, Math.min(90, groundDragon.position.z));
+      const gy = groundYAt(groundDragon.position.x, groundDragon.position.z, groundDragon.position.y);
+      groundDragon.position.y = THREE.MathUtils.lerp(groundDragon.position.y, gy + 1.6, Math.min(1, 10 * dt));
+      if (dist > 0.2) groundDragon.rotation.y = Math.atan2(dx, dz);
+      // Contact damage
+      if (dist < 3.2) takeDamage(1, groundDragon.position);
+      damageCubesNear(groundDragon.position, 3.4);
+      // Fire breath
+      if (groundDragon.userData.fireCD === undefined) groundDragon.userData.fireCD = 1.0;
+      groundDragon.userData.fireCD -= dt;
+      if (groundDragon.userData.fireCD <= 0 && dist < 45) {
+        groundDragon.userData.fireCD = FIRE_BREATH_COOLDOWN * 0.85 + Math.random() * 0.6;
+        const origin = groundDragon.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+        const aim = pref.clone();
+        aim.y += 1.0;
+        spawnFireBreath(origin, aim, true);
+      }
+    }
+
+    // Floating rocks
+    floatingRocks.forEach(r => {
+      r.position.y = r.userData.baseY + Math.sin(ts * 0.001 * r.userData.speed + r.userData.phase) * 1.3;
+      r.rotation.y += dt * 0.1;
+    });
+
+    // Free-aim when either dragon is alive; auto-aim lock otherwise
+    if (wyrmActive || groundDragonActive) {
+      freeAimHint.style.display = wyrmActive ? 'block' : 'none';
+      crosshairEl.classList.add('free-aim');
+      crosshairEl.classList.remove('auto-lock');
+      if (aimLineEl) aimLineEl.classList.remove('show');
+    } else {
+      freeAimHint.style.display = 'none';
+      crosshairEl.classList.remove('free-aim');
+      const locked = findAutoAimTarget();
+      if (locked) {
+        crosshairEl.classList.add('auto-lock');
+        if (aimLineEl) aimLineEl.classList.add('show');
+      } else {
+        crosshairEl.classList.remove('auto-lock');
+        if (aimLineEl) aimLineEl.classList.remove('show');
+      }
+    }
+
+    // Day cycle
+    gameState.sunAngle += dt * 0.055;
+    const sh = Math.sin(gameState.sunAngle);
+    sunMesh.position.set(Math.cos(gameState.sunAngle) * 75, Math.max(sh * 72, 4), 12);
+    sunLight.position.copy(sunMesh.position);
+    sunLight.intensity = 1.0 + Math.max(0, sh) * 4.2;
+    ambient.intensity = 0.34 + Math.max(0, sh) * 0.32;
+    hemi.intensity = 0.36 + Math.max(0, sh) * 0.26;
+    skyMat.uniforms.uSunHeight.value = sh;
+    if (sh < 0.15) timeIndicator.textContent = '🌅 DAWN';
+    else if (sh < 0.85) timeIndicator.textContent = '☀️ MIDDAY';
+    else timeIndicator.textContent = '🌇 DUSK';
+
+    renderer.render(scene, camera);
+    updateMinimap();
+  }
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  updateFuelUI();
+  updateMinimap();
+  requestAnimationFrame(animate);
+  // Tutorial overlay handles first-time guidance; no startup toast
+  </script>
+</body>
+</html>
