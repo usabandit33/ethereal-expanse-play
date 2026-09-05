@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * Headless Chromium smoke. Run after `npm install playwright` + browser install.
+ * Scans root and versions/builds/ for the highest full build (>50KB).
  */
 const { createServer } = require('node:http');
 const { existsSync, readdirSync, readFileSync, statSync } = require('node:fs');
@@ -10,30 +11,49 @@ const MIN_FULL_BYTES = 50 * 1024;
 const VERSION_RE = /^ethereal-expanse-v(\d+(?:\.\d+)*)\.html$/i;
 const root = process.cwd();
 
-const files = readdirSync(root)
-  .filter((n) => VERSION_RE.test(n))
-  .map((name) => ({
-    name,
-    bytes: statSync(join(root, name)).size,
-    n: parseInt(name.match(VERSION_RE)[1], 10),
-  }))
-  .filter((f) => f.bytes >= MIN_FULL_BYTES)
-  .sort((a, b) => a.n - b.n);
+function listFullBuilds() {
+  const dirs = [
+    { dir: root, relPrefix: '' },
+    { dir: join(root, 'versions', 'builds'), relPrefix: 'versions/builds/' },
+  ];
+  const out = [];
+  for (const { dir, relPrefix } of dirs) {
+    if (!existsSync(dir)) continue;
+    for (const name of readdirSync(dir)) {
+      if (!VERSION_RE.test(name)) continue;
+      const path = join(dir, name);
+      if (!statSync(path).isFile()) continue;
+      const bytes = statSync(path).size;
+      if (bytes < MIN_FULL_BYTES) continue;
+      const m = name.match(VERSION_RE);
+      out.push({
+        name,
+        path,
+        rel: relPrefix + name,
+        bytes,
+        n: parseInt(m[1], 10),
+      });
+    }
+  }
+  return out.sort((a, b) => a.n - b.n);
+}
+
+const files = listFullBuilds();
 
 if (!files.length) {
-  console.error('FAIL: no full build >50KB');
+  console.error('FAIL: no full build >50KB in root or versions/builds/');
   process.exit(1);
 }
 
 const file = files[files.length - 1];
-const html = readFileSync(join(root, file.name), 'utf8');
+const html = readFileSync(file.path, 'utf8');
 const requireSfx = file.n >= 30 || html.includes('function applyLoadedSave');
-console.log(`Headless target: ${file.name} (${file.bytes} bytes) requireSfx=${requireSfx}`);
+console.log(`Headless target: ${file.rel} (${file.bytes} bytes) requireSfx=${requireSfx}`);
 
 if (requireSfx) {
   for (const s of ['const sfx', 'function applyLoadedSave']) {
     if (!html.includes(s)) {
-      console.error(`FAIL: ${file.name} missing ${s}`);
+      console.error(`FAIL: ${file.rel} missing ${s}`);
       process.exit(1);
     }
   }
@@ -62,7 +82,7 @@ const server = createServer((req, res) => {
 
 server.listen(0, '127.0.0.1', async () => {
   const { port } = server.address();
-  const url = `http://127.0.0.1:${port}/${file.name}`;
+  const url = `http://127.0.0.1:${port}/${file.rel}`;
   console.log(`Serving ${url}`);
   try {
     const { chromium } = require('playwright');
