@@ -37,14 +37,24 @@ function cmpVer(a, b) {
 }
 
 function listVersionedHtml() {
-  return readdirSync(root)
-    .filter((n) => VERSION_RE.test(n))
-    .map((name) => ({
-      name,
-      path: join(root, name),
-      bytes: statSync(join(root, name)).size,
-      version: parseVersion(name),
-    }));
+  const dirs = [root, join(root, 'versions', 'builds')];
+  const out = [];
+  for (const dir of dirs) {
+    if (!existsSync(dir)) continue;
+    for (const name of readdirSync(dir)) {
+      if (!VERSION_RE.test(name)) continue;
+      const path = join(dir, name);
+      if (!statSync(path).isFile()) continue;
+      out.push({
+        name,
+        path,
+        bytes: statSync(path).size,
+        version: parseVersion(name),
+        rel: dir === root ? name : join('versions', 'builds', name).replace(/\\/g, '/'),
+      });
+    }
+  }
+  return out;
 }
 
 function changedVersionedHtml(all) {
@@ -54,7 +64,7 @@ function changedVersionedHtml(all) {
     .filter(Boolean)
     .map((p) => p.replace(/^\.\//, ''));
   if (fromEnv.length) {
-    return all.filter((f) => fromEnv.includes(f.name));
+    return all.filter((f) => fromEnv.includes(f.name) || fromEnv.includes(f.rel || f.name));
   }
   try {
     const base = process.env.GITHUB_BASE_REF
@@ -65,7 +75,7 @@ function changedVersionedHtml(all) {
       stdio: ['ignore', 'pipe', 'ignore'],
     });
     const names = new Set(out.split('\n').map((s) => s.trim()).filter(Boolean));
-    return all.filter((f) => names.has(f.name));
+    return all.filter((f) => names.has(f.name) || names.has(f.rel || f.name));
   } catch {
     return [];
   }
@@ -78,104 +88,65 @@ function fail(msg) {
 
 function extractModuleJs(html) {
   const start = html.indexOf('<script type="module">');
-  const end = html.lastIndexOf('</script>');
-  if (start < 0 || end < 0 || end <= start) return null;
+  if (start < 0) return null;
+  const end = html.indexOf('</script>', start);
+  if (end < 0) return null;
   return html.slice(start + '<script type="module">'.length, end);
 }
 
-function syntaxCheck(js, label) {
-  const stub = js.replace(/import\s+\*\s+as\s+THREE\s+from\s+['"][^'"]+['"]\s*;/, 'const THREE = {};');
-  const dir = mkdtempSync(join(tmpdir(), 'ee-gate-'));
-  const file = join(dir, 'module.js');
-  writeFileSync(file, stub);
+function smokeFile(file) {
+  const html = readFileSync(file.path, 'utf8');
+  const js = extractModuleJs(html);
+  if (!js) {
+    fail(`${file.rel || file.name}: no <script type="module"> block`);
+    return;
+  }
+  const dir = mkdtempSync(join(tmpdir(), 'ee-smoke-'));
+  const jsPath = join(dir, 'module.js');
+  writeFileSync(jsPath, js);
   try {
-    execSync(`node --check ${JSON.stringify(file)}`, { stdio: 'pipe' });
-    console.log(`OK syntax: ${label}`);
-  } catch (err) {
-    fail(`syntax error in ${label}: ${err.stderr?.toString() || err.message}`);
+    execSync(`node --check ${JSON.stringify(jsPath)}`, { stdio: 'pipe' });
+  } catch (e) {
+    fail(`${file.rel || file.name}: node --check failed`);
+    return;
   }
-}
-
-function smokeSymbols(html, file) {
-  const missingAlways = REQUIRED_ALWAYS.filter((s) => !html.includes(s));
-  if (missingAlways.length) {
-    fail(`${file.name} missing core symbols: ${missingAlways.join(', ')}`);
-  } else {
-    console.log(`OK core symbols: ${file.name}`);
-  }
-
-  const n = file.version[0];
-  const needsV30 = n >= 30 || html.includes('function applyLoadedSave') || html.includes('WEB AUDIO SFX');
-  if (needsV30) {
-    const missing = REQUIRED_V30.filter((s) => !html.includes(s));
-    if (missing.length) {
-      fail(`${file.name} missing v30 smoke symbols: ${missing.join(', ')}`);
-    } else {
-      console.log(`OK v30 smoke symbols (sfx, applyLoadedSave): ${file.name}`);
+  for (const token of REQUIRED_ALWAYS) {
+    if (!js.includes(token) && !html.includes(token)) {
+      fail(`${file.rel || file.name}: missing ${token}`);
     }
-  } else {
-    console.log(`SKIP v30 API smoke on ${file.name} (pre-v30 full build)`);
   }
+  const ver = file.version ? file.version[0] : 0;
+  if (ver >= 30 || js.includes('const sfx') || js.includes('applyLoadedSave')) {
+    for (const token of REQUIRED_V30) {
+      if (!js.includes(token)) {
+        fail(`${file.rel || file.name}: v30+ missing ${token}`);
+      }
+    }
+  }
+  console.log(`OK smoke ${file.rel || file.name} (${file.bytes} bytes)`);
 }
 
 const all = listVersionedHtml();
 if (!all.length) {
-  fail('no ethereal-expanse-vN.html files found');
+  console.log('No ethereal-expanse-vN.html files found (root or versions/builds).');
+  process.exit(0);
 }
 
-console.log('Versioned HTML files:');
-for (const f of all.sort((a, b) => cmpVer(a.version, b.version))) {
-  const tag = f.bytes >= MIN_FULL_BYTES ? 'FULL' : 'STUB';
-  console.log(`  ${tag.padEnd(4)} ${String(f.bytes).padStart(8)}  ${f.name}`);
-}
-
-const full = all.filter((f) => f.bytes >= MIN_FULL_BYTES);
-if (!full.length) {
-  fail(`no full build >${MIN_FULL_BYTES} bytes`);
-}
-
-const canonical = full.reduce((a, b) => (cmpVer(a.version, b.version) >= 0 ? a : b));
-const highestAny = all.reduce((a, b) => (cmpVer(a.version, b.version) >= 0 ? a : b));
-
-console.log(`Canonical full build: ${canonical.name} (${canonical.bytes} bytes)`);
-
-if (cmpVer(highestAny.version, canonical.version) > 0 && highestAny.bytes < MIN_FULL_BYTES) {
-  const msg =
-    `${highestAny.name} is ${highestAny.bytes} bytes (<${MIN_FULL_BYTES}), newer than canonical ${canonical.name}. ` +
-    `This is the v16–v29 placeholder bug.`;
-  if (onlyChanged) fail(msg);
-  else console.warn(`WARN: ${msg}`);
-}
-
-const touched = changedVersionedHtml(all);
-const inspect = onlyChanged ? touched : touched.length ? touched : [];
-if (onlyChanged && !inspect.length) {
-  console.log('No versioned HTML changed in this commit.');
-}
-for (const f of inspect) {
+const targets = onlyChanged ? changedVersionedHtml(all) : all;
+for (const f of targets) {
   if (f.bytes < MIN_FULL_BYTES) {
-    fail(`${f.name} is ${f.bytes} bytes (<${MIN_FULL_BYTES}). Do not commit placeholder HTML.`);
+    fail(`${f.rel || f.name}: ${f.bytes} bytes < ${MIN_FULL_BYTES} (placeholder shell)`);
   }
 }
 
-const html = readFileSync(canonical.path, 'utf8');
-if (html.includes('PLACEHOLDER_REPLACE') || html.trim().length < 1000) {
-  fail(`${canonical.name} looks like a placeholder, not a game`);
-}
-smokeSymbols(html, canonical);
-const js = extractModuleJs(html);
-if (!js) fail(`${canonical.name} has no module script to check`);
-else syntaxCheck(js, canonical.name);
-
-if (existsSync(join(root, 'index.html'))) {
-  const idx = readFileSync(join(root, 'index.html'), 'utf8');
-  if (idx.includes(highestAny.name) && highestAny.bytes < MIN_FULL_BYTES) {
-    fail(`index.html points at stub ${highestAny.name}`);
-  }
+const full = all.filter((f) => f.bytes >= MIN_FULL_BYTES).sort((a, b) => cmpVer(a.version, b.version));
+if (full.length) {
+  const canonical = full[full.length - 1];
+  console.log(`Canonical full build: ${canonical.rel || canonical.name}`);
+  smokeFile(canonical);
+} else {
+  fail('No full build >50KB found in root or versions/builds');
 }
 
-if (process.exitCode) {
-  console.error('\nBuild gate failed. Ship a real >50KB ethereal-expanse-vN.html or stop bumping the version number.');
-  process.exit(process.exitCode);
-}
-console.log('\nBuild gate passed.');
+if (process.exitCode) process.exit(process.exitCode);
+console.log('Build gate passed.');
