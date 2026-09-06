@@ -13,7 +13,7 @@ Explore a floating island world, fight Void Walkers, drive a car, chop trees, ca
 - **Explore** hills, a castle, ponds, and a day/night sky
 - **Fight** Void Walkers and larger bosses (Wyrm / Hunter)
 - **Gather** wood, rocks, gems, coins, and pearls
-- **Build** camps, dig water holes, place wood cubes
+- **Build** camps, dig water holes, place wood cubes, authorize cow pens
 - **Drive** a car (coins become fuel)
 - **Capture companions** — wolves, cats, dogs, beavers, cows, chickens, horses
 - **Craft** a sword when you have enough rocks and wood
@@ -34,6 +34,7 @@ Explore a floating island world, fight Void Walkers, drive a car, chop trees, ca
 | **T** | Place a wood cube |
 | **R** | Capture a nearby animal |
 | **K** | Craft sword (20 rocks + 20 wood) |
+| **N** | Authorize a cow pen (4 wood; keeps 20 wood until sword is forged) |
 | **V** | Enter / exit the car |
 | **P** or **Esc** | Pause |
 | **M** | Minimap legend |
@@ -54,7 +55,7 @@ Tip: click the game once so sound can unlock in the browser.
 | **Chicken** | Capture with **R** | At 10 companions, dive the Wyrm |
 | **Wolf / cat / cow** | Capture with **R** | First of each kind recruits more |
 
-Friendly builders may spend a little of your wood to pen cows.
+Builders walk up to cows but do not spend your wood unless you press **N**.
 
 ---
 
@@ -80,6 +81,8 @@ scripts/                   # CI build-gate checks
 ```
 
 Only commit full builds over **50 KB**. Tiny placeholder HTML files are rejected by CI.
+
+Canonical playable snapshot this loop: **v37** (`versions/builds/ethereal-expanse-v37.html`).
 
 ---
 
