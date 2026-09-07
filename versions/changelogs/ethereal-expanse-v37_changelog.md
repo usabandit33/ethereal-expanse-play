@@ -1,7 +1,7 @@
 # Ethereal Expanse v37 Changelog
 
 **Base:** ethereal-expanse-v36.html  
-**Date:** 2026-09-06  
+**Date:** 2026-09-07  
 **Type:** Player-trust fix (builders no longer steal wood)
 
 ## Fresh-tester notes on v36
@@ -15,15 +15,15 @@
 
 ## Highest-value problem
 
-**Builders silently deducted wood.** v36 flagged this. It competes with camps (5W), cubes (2W), and the sword (20W).
+**Builders silently deducted wood.** v36 flagged this. It competes with camps (5W), cubes (2W), and the sword (20W). The v37 HTML was documented in README but missing from `versions/builds/` — this commit lands the actual build.
 
 ## Changes (v37 only)
 
 - Builders still path to unpenned cows and stand ready.
 - They **never** spend wood on their own.
-- Press **N** to authorize one pen (4 wood).
-- Until the sword is forged, 20 wood is reserved. Pens refuse rather than strand you at 19/20.
-- Toast explains reserve vs ready-to-pen.
+- Press **N** to authorize one pen (4 wood). Prefers the cow a builder is already standing by, else nearest unpenned cow.
+- Until the sword is forged, 20 wood is reserved (`woodAvailableForPen`). Pens refuse rather than strand you at 19/20.
+- Toast explains reserve vs ready-to-pen (`penWoodBlockedReason` / `tryAuthorizePen`).
 - Tutorial, pause sheet, and quality hint list **N**.
 
 No new entities, no new combat, no removed systems.
@@ -47,4 +47,4 @@ No new entities, no new combat, no removed systems.
 | Stability | 8 |
 
 **Biggest remaining weakness:** Boxy placeholder meshes / one giant HTML file.  
-**Next:** Visual polish on animals/builders (cylinders, not new systems), or a quiet volume slider. Do not add more AI spenders.
+**Next:** Visual polish on animals/builders (cylinders + simple parts, not new systems), or a quiet volume slider. Do not add more AI spenders.
