@@ -1,7 +1,7 @@
 # Ethereal Expanse v37 Changelog
 
 **Base:** ethereal-expanse-v36.html  
-**Date:** 2026-09-07  
+**Date:** 2026-09-08  
 **Type:** Player-trust fix (builders no longer steal wood)
 
 ## Fresh-tester notes on v36
@@ -15,7 +15,7 @@
 
 ## Highest-value problem
 
-**Builders silently deducted wood.** v36 flagged this. It competes with camps (5W), cubes (2W), and the sword (20W). The v37 HTML was documented in README but missing from `versions/builds/` — this commit lands the actual build.
+**Builders silently deducted wood.** v36 flagged this. It competes with camps (5W), cubes (2W), and the sword (20W). README already listed **N** and reserved wood, but `versions/builds/ethereal-expanse-v37.html` was missing — this commit lands the actual build.
 
 ## Changes (v37 only)
 
@@ -30,7 +30,7 @@ No new entities, no new combat, no removed systems.
 
 ## Validation
 
-- Extracted script: `node --check` clean.
+- Extracted module script: `node --check` clean.
 - Brace / paren balance 0.
 - `tryAuthorizePen`, `woodAvailableForPen`, `penWoodBlockedReason` present.
 - Auto `buildPenAround` from the AI timer removed.
