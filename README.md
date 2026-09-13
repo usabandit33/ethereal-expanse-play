@@ -82,7 +82,7 @@ scripts/                   # CI build-gate checks
 
 Only commit full builds over **50 KB**. Tiny placeholder HTML files are rejected by CI.
 
-Canonical playable snapshot this loop: **v39** (`versions/builds/ethereal-expanse-v39.html`).
+Canonical playable snapshot this loop: **v40** (`versions/builds/ethereal-expanse-v40.html`).
 
 ---
 
